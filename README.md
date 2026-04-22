@@ -13,5 +13,3 @@
 ## 使用说明
 
 - 本表格可用于写作技能插件（如 `.skill` 文件）或个人学习参考。
-- 如需在 GitHub 上编辑或上传，请将此文件保存为 `.md` 格式。
-- 上传方法可参考 GitHub 网页端 `Add file → Upload files`，或使用 `git push` 命令。
