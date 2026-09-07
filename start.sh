@@ -1,103 +1,70 @@
 #!/usr/bin/env bash
-# 天衍 一键启动
-# 双击或 ./start.sh 运行
 set -e
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$DIR"
 
-# 颜色
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-CYAN='\033[0;36m'
-NC='\033[0m'
+RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[0;33m'; CYAN='\033[0;36m'; NC='\033[0m'
 
 echo ""
-echo "============================================================"
-echo "  天衍 - 一键启动"
-echo "============================================================"
+echo -e "  ${CYAN}✦ 天衍 (Tianyan) — 一键启动${NC}"
+echo "  ============================================"
 echo ""
 
-# ===== 检测 Python =====
-echo -e "${CYAN}[1/3] 检测 Python 环境...${NC}"
-PY=""
-if command -v python3 &>/dev/null; then
-    PY="python3"
-elif command -v python &>/dev/null; then
-    PY="python"
-else
-    echo -e "${RED}  [错误] 未找到 Python 3.10+${NC}"
-    echo "  下载地址: https://www.python.org/downloads/"
+# 1. 检查 Node.js
+if ! command -v node &> /dev/null; then
+    echo -e "  ${RED}[错误] 未检测到 Node.js${NC}"
+    echo "  安装: https://nodejs.org/"
     exit 1
 fi
+echo -e "  ${GREEN}✓ Node.js $(node -v)${NC}"
 
-PYVER=$($PY --version 2>&1 | awk '{print $2}')
-echo -e "${GREEN}  ✓ Python ${PYVER}${NC}"
-
-# ===== 检测依赖 =====
-echo -e "${CYAN}[2/3] 检测依赖...${NC}"
-if ! $PY -c "import fastapi" 2>/dev/null; then
-    echo -e "${YELLOW}  [提示] 依赖未安装，正在自动安装...${NC}"
-
-    # 国内镜像源列表 (优先), 国外源兜底
-    MIRRORS=(
-        "https://pypi.tuna.tsinghua.edu.cn/simple"
-        "https://mirrors.aliyun.com/pypi/simple/"
-        "https://repo.huaweicloud.com/repository/pypi/simple/"
-        "https://pypi.mirrors.ustc.edu.cn/simple/"
-        "https://mirrors.cloud.tencent.com/pypi/simple/"
-        "https://pypi.douban.com/simple/"
-        "https://mirrors.163.com/pypi/simple/"
-        "https://pypi.org/simple/"
-    )
-
-    # 逐源尝试安装, 每个源 10 分钟超时
-    install_with_mirrors() {
-        local pkg_desc="$1"
-        shift
-        local packages=("$@")
-        for MIRROR_URL in "${MIRRORS[@]}"; do
-            local HOSTNAME=$(echo "$MIRROR_URL" | sed -E 's|https?://([^/]+).*|\1|')
-            echo "    尝试 $HOSTNAME ..."
-            # timeout 600s = 10 分钟; 用 --timeout 5 给 pip 单次请求超时
-            if timeout 600 $PY -m pip install "${packages[@]}" -i "$MIRROR_URL" --trusted-host "$HOSTNAME" --timeout 5 --retries 2 -q 2>&1; then
-                echo -e "${GREEN}    ✓ $pkg_desc 安装成功${NC}"
-                return 0
-            fi
-            echo -e "${YELLOW}    ! $HOSTNAME 失败或超时, 切换下一个源...${NC}"
-        done
-        echo -e "${RED}    ✗ $pkg_desc 安装失败: 所有源均不可用${NC}"
-        return 1
-    }
-
-    # 安装核心依赖
-    echo "  安装核心依赖 (每个源最多 10 分钟, 自动切换)..."
-    CORE_PKGS=(fastapi uvicorn litellm openai pydantic pydantic-settings PyYAML python-multipart httpx python-dotenv)
-    if ! install_with_mirrors "核心依赖" "${CORE_PKGS[@]}"; then
-        echo -e "${RED}  [错误] 核心依赖安装失败${NC}"
-        echo "  请手动运行: pip install -r requirements.txt"
-        exit 1
-    fi
-
-    # 安装扩展依赖
-    echo "  安装扩展依赖 (每个源最多 10 分钟, 自动切换)..."
-    EXT_PKGS=(python-docx pypdf ebooklib beautifulsoup4 Markdown readability-lxml lxml chromadb redis psycopg2-binary RestrictedPython)
-    if ! install_with_mirrors "扩展依赖" "${EXT_PKGS[@]}"; then
-        echo -e "${YELLOW}  [警告] 部分扩展依赖安装失败，核心功能仍可用${NC}"
-    fi
+# 2. 检查 Python (可选)
+if command -v python3 &> /dev/null; then
+    echo -e "  ${GREEN}✓ Python 3 可用 (技能桥接)${NC}"
 else
-    echo -e "${GREEN}  ✓ 依赖已安装${NC}"
+    echo -e "  ${YELLOW}⚠ Python 3 未安装，技能桥接降级模式${NC}"
 fi
 
-# ===== 启动服务 =====
-echo -e "${CYAN}[3/3] 启动服务...${NC}"
-echo ""
-echo "============================================================"
-echo "  天衍 启动中..."
-echo "  访问地址: http://localhost:8000/"
-echo "  按 Ctrl+C 停止服务"
-echo "============================================================"
-echo ""
+# 3. 安装依赖
+if [ ! -d "node_modules" ]; then
+    echo "  📦 安装依赖..."
+    npm install --no-audit --no-fund
+fi
 
-export LITELLM_LOCAL_MODEL_COST_MAP=True
-$PY run.py
+# 4. 编译 TypeScript
+echo "  🔨 编译 TypeScript..."
+npx tsc 2>/dev/null
+
+# 5. 初始化配置 (不存在时从模板复制)
+CONF_DIR="${HOME}/.tianyan"
+CONF_FILE="${CONF_DIR}/config.yaml"
+mkdir -p "$CONF_DIR" 2>/dev/null || true
+if [ ! -f "$CONF_FILE" ]; then
+    echo "  ⚙️  初始化配置 → ${CONF_FILE}"
+    cp config.example.yaml "$CONF_FILE"
+    # 生成随机 DB 路径
+    sed -i "s|data_dir: ~/.tianyan|data_dir: ${CONF_DIR}|" "$CONF_FILE" 2>/dev/null || true
+    echo -e "  ${YELLOW}⚠ 首次运行请编辑 ${CONF_FILE} 填入 API Key${NC}"
+fi
+
+# 6. Playwright 浏览器 (首次需要安装)
+if command -v npx &> /dev/null && ! npx playwright install --dry-run chromium 2>/dev/null | grep -q "already installed"; then
+    echo "  🌐 安装 Playwright Chromium 浏览器..."
+    npx playwright install chromium 2>/dev/null || echo -e "  ${YELLOW}⚠ Playwright 浏览器安装失败，浏览器抓取功能降级${NC}"
+fi
+
+# 7. 杀掉占用端口的旧进程
+PORT=$(grep 'server_port' "$CONF_FILE" 2>/dev/null | head -1 | awk '{print $2}')
+PORT=${PORT:-8093}
+if command -v fuser &> /dev/null; then
+    fuser -k "${PORT}/tcp" 2>/dev/null || true
+elif command -v lsof &> /dev/null; then
+    lsof -ti :"$PORT" | xargs kill -9 2>/dev/null || true
+fi
+sleep 1
+
+# 8. 启动
+echo ""
+echo -e "  ${GREEN}🚀 启动天衍 → http://localhost:${PORT}${NC}"
+echo ""
+node dist/index.js

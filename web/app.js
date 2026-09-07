@@ -413,13 +413,43 @@ async function loadProjects() {
   const list = await api("/api/projects");
   const menu = $("#proj-menu");
   menu.innerHTML = `<button class="proj-opt" id="new-project-opt">+ 新建项目…</button>` +
-    list.map((p) => `<button class="proj-opt" data-id="${p.id}">${esc(p.name)}</button>`).join("");
+    list.map((p) => `<div class="proj-opt-row" data-id="${p.id}">
+        <button class="proj-opt" data-id="${p.id}"><span class="name">${esc(p.name)}</span><span class="meta">${esc(p.genre || "")}</span></button>
+        <button class="proj-del" data-del="${p.id}" title="删除项目">✕</button>
+      </div>`).join("");
   $$("#proj-menu .proj-opt").forEach((el) => {
     if (el.id === "new-project-opt") {
       el.onclick = () => $("#proj-modal").classList.add("show");
     } else {
       el.onclick = () => { selectProject(el.dataset.id); closeSidebar(); };
     }
+  });
+  // 删除项目
+  $$("#proj-menu .proj-del").forEach((el) => {
+    el.onclick = async (ev) => {
+      ev.stopPropagation();
+      const pidDel = el.dataset.del;
+      const name = list.find((p) => p.id === pidDel)?.name || pidDel;
+      if (!confirm(`确定删除项目「${name}」? 该项目下的章节/设定/消息将全部删除, 不可恢复!`)) return;
+      try {
+        await api(`/api/projects/${pidDel}`, { method: "DELETE" });
+        if (localStorage.getItem("tianyan_last_project") === pidDel) {
+          localStorage.removeItem("tianyan_last_project");
+        }
+        if (currentProject && currentProject.id === pidDel) {
+          currentProject = null;
+          $("#proj-info").textContent = "未选择项目";
+          $("#proj-select-label").textContent = "选择项目 ▾";
+          $("#tree").innerHTML = `<div class="tree-empty"><div class="tree-empty-icon">📂</div><p>选择或新建一个项目</p><p class="muted">章节、设定、素材将在此以文件树形式展示</p></div>`;
+          $("#chat").innerHTML = "";
+          showEmpty();
+        }
+        await loadProjects();
+        toast(`已彻底删除项目「${name}」(含章节/设定/消息/记忆), 数据库已压缩`, "ok", 5000);
+      } catch (e) {
+        toast("删除失败: " + e.message, "err");
+      }
+    };
   });
   // 当前项目标签
   if (currentProject) {
@@ -447,6 +477,7 @@ document.addEventListener("click", () => {
 async function selectProject(pid) {
   const p = await api(`/api/projects/${pid}`);
   currentProject = p;
+  localStorage.setItem("tianyan_last_project", pid);
   $("#proj-info").textContent = p.name + (p.audience ? ` · ${p.audience}` : "") + (p.genre ? ` · ${p.genre}` : "");
   $("#proj-select-label").textContent = p.name;
   // 拉取已上传素材
@@ -652,64 +683,58 @@ async function loadMessages(pid) {
     showEmpty();
     return;
   }
-  // 改进: 历史消息也要渲染思考链 (重进可展开收起)
-  // 后端存了 user / assistant(tool_calls) / tool / assistant(正文) 四种,
-  // 把 assistant(tool_calls) + 紧跟的 tool 结果组装成可折叠的 think-block
-  let i = 0;
-  while (i < msgs.length) {
-    const m = msgs[i];
+  // 智能分组: 将连续的思考/工具调用归入最近一个正文回答的思考面板
+  let thinkItems = []; // 当前累积的思考/工具条目
+  function flushThinkItems() {
+    if (thinkItems.length === 0) return null;
+    const panel = document.createElement("div");
+    panel.className = "sub-think-panel open"; // 默认展开
+    const body = document.createElement("div");
+    body.className = "sub-think-body";
+    for (const item of thinkItems) {
+      const div = document.createElement("div");
+      div.className = "st-entry " + (item.type === "think" ? "st-think" : "st-done");
+      div.innerHTML = '<span class="st-dot"></span><span class="st-text">' + esc(item.text) + '</span>';
+      body.appendChild(div);
+    }
+    panel.appendChild(body);
+    thinkItems = [];
+    return panel;
+  }
+  function renderMsgWithThink(content) {
+    const ast = appendMessage("assistant", content, false);
+    const thinkPanel = flushThinkItems();
+    if (thinkPanel) {
+      const bubble = ast.el.closest(".msg").querySelector(".bubble");
+      ast.el.closest(".msg").insertBefore(thinkPanel, bubble);
+    }
+  }
+  for (const m of msgs) {
     if (m.role === "user") {
       appendMessage("user", m.content, false);
-      i++;
-      continue;
-    }
-    if (m.role === "assistant" && m.tool_name === "tool_calls") {
-      // 历史消息: 双层折叠 (思考过程默认折叠 + 答案默认展开)
-      // 规则5: 工具调用渲染成 🔧 工具名 ✓ 胶囊, 不显示 JSON
-      const ast = appendMessage("assistant", "", false);
-      ast.el.innerHTML = "";
-      const toggle = document.createElement("div");
-      toggle.className = "sub-think-toggle";
-      toggle.innerHTML = `思考过程 <span class="arrow">▼</span>`;
-      toggle.onclick = () => toggleSubThink(toggle);
-      const panel = document.createElement("div");
-      panel.className = "sub-think-panel";
-      const body = document.createElement("div");
-      body.className = "sub-think-body";
-      panel.appendChild(body);
-      ast.el.appendChild(toggle);
-      ast.el.appendChild(panel);
-      // 解析 tool_calls, 每个渲染成已完成胶囊 (历史工具均已执行完毕)
-      let calls = [];
-      try { calls = JSON.parse(m.content || "[]"); } catch (e) {}
-      for (let k = 0; k < calls.length; k++) {
-        const c = calls[k];
-        const fn = c.function?.name || "";
-        if (fn === "delegate_to_agent") continue; // 委派由 @消息体现, 不重复
-        addToolCapsule(body, cnTool(fn), false);
+    } else if (m.role === "assistant") {
+      const tn = m.tool_name || "";
+      if (tn === "think") {
+        // 思考内容: 累积到分组
+        thinkItems.push({ type: "think", text: (m.content || "").slice(0, 300) });
+      } else if (tn === "tool_calls") {
+        let tools = [];
+        try { tools = JSON.parse(m.content || "[]"); } catch(e) {}
+        const names = tools.map(t => t.function?.name || "?").join(", ");
+        thinkItems.push({ type: "tool", text: "🔧 " + names });
+      } else if (m.content && m.content.trim()) {
+        // 正文回答: 附带之前累积的思考内容
+        renderMsgWithThink(m.content);
       }
-      // 跳过已消费的 tool 消息, 找最终 assistant 正文
-      let j = i + 1;
-      while (j < msgs.length && msgs[j].role === "tool") j++;
-      if (j < msgs.length && msgs[j].role === "assistant" && msgs[j].tool_name !== "tool_calls") {
-        const ans = document.createElement("div");
-        ans.className = "md answer-body";
-        ans.innerHTML = renderMd(msgs[j].content || "");
-        ast.el.appendChild(ans);
-        i = j + 1;
-      } else {
-        i = j;
-      }
-      continue;
     }
-    if (m.role === "tool") {
-      // 孤立的 tool 消息 (无前置 tool_calls, 容错跳过)
-      i++;
-      continue;
+  }
+  // 处理末尾的思考内容
+  if (thinkItems.length > 0) {
+    const panel = flushThinkItems();
+    if (panel) {
+      const lastMsg = $("#chat").querySelector(".msg:last-child");
+      if (lastMsg) lastMsg.insertBefore(panel, lastMsg.querySelector(".bubble"));
     }
-    // 普通 assistant 正文
-    appendMessage("assistant", m.content, false);
-    i++;
   }
   scrollChat();
 }
@@ -746,13 +771,15 @@ function rebuildSuggestions() {
 
 // ---------- 对话 ----------
 function appendMessage(role, content, streaming) {
+  // debug: console.log("[DEBUG] appendMessage:", role, (content||"").slice(0,50));
   const es = $("#empty-state");
   if (es) es.remove();
   const msg = { role, content: content || "", steps: [], streaming };
   chatHistory.push(msg);
   const div = document.createElement("div");
   div.className = `msg ${role}`;
-  div.innerHTML = `<div class="role ${role}">${role === "user" ? "你" : "✦ 天衍"}</div>
+  const roleLabel = role === "user" ? "你" : '✦ 天衍 <span class="sub-think-toggle-inline" onclick="toggleOrchThink(this)">思考过程 <span class="arrow">▼</span></span>';
+  div.innerHTML = `<div class="role ${role}">${roleLabel}</div>
     <div class="bubble"></div>`;
   $("#chat").appendChild(div);
   msg.el = div.querySelector(".bubble");
@@ -1088,7 +1115,7 @@ function handleEvent(evt, assistant) {
   const bubble = assistant.el;
   // 调试: 记录所有收到的事件 (F12 console 看)
   if (evt.type && evt.type.startsWith("sub_")) {
-    console.log("%c[群聊事件] " + evt.type, "color:#3d6b8b;font-weight:bold", evt);
+    // debug: console.log("%c[群聊事件] " + evt.type, "color:#3d6b8b;font-weight:bold", evt);
   }
   switch (evt.type) {
     case "start":
@@ -1099,6 +1126,26 @@ function handleEvent(evt, assistant) {
       break;
     }
     case "think_start": {
+      // 子agent路由: 如果是子agent的思考, 渲染到子agent气泡
+      const _tsAgent = evt.agent || "orchestrator";
+      const _isSubTs = _tsAgent !== "orchestrator" && assistant.subBubbles && assistant.subBubbles[_tsAgent];
+      if (_isSubTs) {
+        const _sub = assistant.subBubbles[_tsAgent];
+        _sub.thinkBuf = "";
+        const _body = _sub.thinkBody;
+        if (_body) {
+          const _entry = document.createElement("div");
+          _entry.className = "st-entry st-think";
+          _entry.innerHTML = `<span class="st-dot"></span><span class="st-text"><b>轮${evt.round || 1}</b> <span class="think-stream-text"></span><span class="thinking-dots"></span></span>`;
+          _body.appendChild(_entry);
+          _sub.curThinkEntry = _entry;
+          _sub.curThinkText = _entry.querySelector(".think-stream-text");
+          _sub.panel = _body.closest(".sub-think-panel");
+          if (_sub.panel) _sub.panel.classList.add("open");
+        }
+        scrollChat();
+        break;
+      }
       // 思考开始: 自动展开思考面板, 创建流式条目
       if (assistant.closed) rotateOrchestratorBubble(assistant);
       ensureOrchestratorThinkPanel(assistant);
@@ -1126,6 +1173,17 @@ function handleEvent(evt, assistant) {
       break;
     }
     case "think_token": {
+      const _tkAgent = evt.agent || "orchestrator";
+      const _isSubTk = _tkAgent !== "orchestrator" && assistant.subBubbles && assistant.subBubbles[_tkAgent];
+      if (_isSubTk && evt.text) {
+        const _subTk = assistant.subBubbles[_tkAgent];
+        if (_subTk.curThinkText) {
+          _subTk.curThinkText.appendChild(document.createTextNode(evt.text));
+        }
+        _subTk.thinkBuf = (_subTk.thinkBuf || "") + evt.text;
+        scrollChat();
+        break;
+      }
       // 实时追加思考文本到流式条目 (打字机效果)
       if (evt.text && assistant.curThinkText) {
         assistant.curThinkText.appendChild(document.createTextNode(evt.text));
@@ -1135,6 +1193,20 @@ function handleEvent(evt, assistant) {
       break;
     }
     case "think_end": {
+      const _teAgent = evt.agent || "orchestrator";
+      const _isSubTe = _teAgent !== "orchestrator" && assistant.subBubbles && assistant.subBubbles[_teAgent];
+      if (_isSubTe) {
+        const _subTe = assistant.subBubbles[_teAgent];
+        if (_subTe.curThinkEntry) {
+          const _dots = _subTe.curThinkEntry.querySelector(".thinking-dots");
+          if (_dots) _dots.remove();
+          _subTe.curThinkEntry.className = `st-entry st-done`;
+        }
+        _subTe.curThinkEntry = null;
+        _subTe.curThinkText = null;
+        _subTe.thinkBuf = "";
+        break;
+      }
       // 思考结束: 移除打字光标, 显示判断结果
       const body = assistant.thinkBody;
       const feasible = evt.feasible;
@@ -1384,6 +1456,12 @@ function handleEvent(evt, assistant) {
       break;
     }
     case "answer_start": {
+      const _asAgent = evt.agent || "orchestrator";
+      const _isSubAs = _asAgent !== "orchestrator" && assistant.subBubbles && assistant.subBubbles[_asAgent];
+      if (_isSubAs) {
+        assistant.subBubbles[_asAgent].rawBuf = "";
+        break;
+      }
       removeThinkLoading();
       // 群聊式: 总编气泡若已封口(上次是@委派), 开新气泡展示最终回答
       if (assistant.closed) {
@@ -1399,6 +1477,16 @@ function handleEvent(evt, assistant) {
       break;
     }
     case "token": {
+      const _tk2Agent = evt.agent || "orchestrator";
+      const _isSubTk2 = _tk2Agent !== "orchestrator" && assistant.subBubbles && assistant.subBubbles[_tk2Agent];
+      if (_isSubTk2) {
+        const _subTk2 = assistant.subBubbles[_tk2Agent];
+        if (!_subTk2.rawBuf) _subTk2.rawBuf = "";
+        _subTk2.rawBuf += (evt.text || evt.content || "");
+        _subTk2.answerWrap.innerHTML = '<div class="sub-answer-body md">' + renderMd(_subTk2.rawBuf) + '</div>';
+        scrollChat();
+        break;
+      }
       if (!assistant.answerEl) {
         // 兜底: 没有 answer_start 也建回答区
         if (assistant.closed) rotateOrchestratorBubble(assistant);
@@ -1407,7 +1495,7 @@ function handleEvent(evt, assistant) {
         assistant.rawBuf = "";
         assistant.el.appendChild(assistant.answerEl);
       }
-      assistant.rawBuf += evt.text;
+      assistant.rawBuf += (evt.text || evt.content || "");
       assistant.answerEl.innerHTML = renderMd(assistant.rawBuf);
       scrollChat();
       break;
@@ -1466,7 +1554,7 @@ function handleEvent(evt, assistant) {
       // 左侧面板: 完成徽章
       appendThink(`<div class="td-done-badge">
         <span class="td-done-icon">✓</span> 完成 · ${evt.steps} 步
-        ${evt.stats ? ` · ${evt.stats.chapters}章/${evt.stats.total_chars}字` : ""}
+        ${evt.stats ? ` · ${evt.stats.chapters}章/${evt.stats.totalElements || 0}个元素` : ""}
       </div>`);
       // 1.5 秒后恢复文件树
       setTimeout(() => hideThinkPanel(), 1500);
@@ -1483,7 +1571,7 @@ function handleEvent(evt, assistant) {
         const note = document.createElement("div");
         note.className = "done-note muted";
         note.style.cssText = "display:flex;align-items:center;gap:8px;flex-wrap:wrap";
-        note.innerHTML = `<span>✓ 完成 · ${evt.steps} 步${evt.stats ? ` · ${evt.stats.chapters}章/${evt.stats.total_chars}字` : ""}</span>`;
+        note.innerHTML = `<span>✓ 完成 · ${evt.steps} 步${evt.stats ? ` · ${evt.stats.chapters}章/${evt.stats.totalElements || 0}个元素` : ""}</span>`;
         // 导出TXT按钮
         if (finalText.length > 0) {
           const dlBtn = document.createElement("button");
@@ -1701,6 +1789,12 @@ $("#drawer-save").addEventListener("click", async () => {
   openChapter(drawerChapterId);
 });
 $("#drawer-close").addEventListener("click", () => $("#drawer").classList.remove("open"));
+$("#drawer-back").addEventListener("click", () => $("#drawer").classList.remove("open"));
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && $("#drawer").classList.contains("open")) {
+    $("#drawer").classList.remove("open");
+  }
+});
 $("#view-chapter-btn").addEventListener("click", () => {
   const p = currentProject;
   if (!p || !p.chapters?.length) return toast("暂无章节", "warn");
@@ -1836,7 +1930,7 @@ $("#clear-chat-btn").addEventListener("click", async () => {
   toast("已清空对话", "ok");
 });
 
-// ---------- 响应式侧栏 ----------
+// ---------- 侧栏 (桌面可折叠, 移动端抽屉) ----------
 function openSidebar() {
   $("#sidebar").classList.add("open");
   $("#scrim").classList.add("show");
@@ -1845,8 +1939,15 @@ function closeSidebar() {
   $("#sidebar").classList.remove("open");
   $("#scrim").classList.remove("show");
 }
-$("#menu-btn").addEventListener("click", openSidebar);
-$("#sidebar-close").addEventListener("click", closeSidebar);
+function toggleSidebar() {
+  if ($("#sidebar").classList.contains("open")) {
+    closeSidebar();
+  } else {
+    openSidebar();
+  }
+}
+$("#menu-btn").addEventListener("click", (e) => { e.stopPropagation(); toggleSidebar(); });
+$("#sidebar-close").addEventListener("click", (e) => { e.stopPropagation(); closeSidebar(); });
 $("#scrim").addEventListener("click", closeSidebar);
 
 // ---------- composer ----------
@@ -1911,6 +2012,29 @@ applyFontScale(currentFontScale);
 loadConfig();
 loadProjects();
 loadAgents();
+
+// 恢复上次打开的项目: 刷新/重启后自动选中, 避免"项目消失"的错觉
+(async () => {
+  const saved = localStorage.getItem("tianyan_last_project");
+  if (saved) {
+    try {
+      const list = await api("/api/projects");
+      if (list.some((p) => p.id === saved)) {
+        await selectProject(saved);
+        return;
+      }
+    } catch { /* 项目已被删除则忽略 */ }
+    localStorage.removeItem("tianyan_last_project");
+  }
+  // 无记录或已失效: 自动选中最近创建的项目, 并提示侧边栏有项目列表
+  try {
+    const list = await api("/api/projects");
+    if (list.length && !currentProject) {
+      await selectProject(list[0].id);
+      toast(`已打开最近项目: ${list[0].name}`, "ok", 4000);
+    }
+  } catch { /* 无项目 */ }
+})();
 
 // ---------- 多 agent 选择器 ----------
 function agentBadgesHtml(a) {
@@ -2227,17 +2351,16 @@ async function loadSkills() {
 function renderSkills() {
   if (!skData) return;
   const skills = skData.skills || [];
-  const status = skData.status || {};
-  const builtin = skills.filter((s) => s.kind !== "custom");
-  const custom = skills.filter((s) => s.kind === "custom");
+  const builtin = skills;
+  const custom = skData.custom || [];
 
   // 状态汇总
-  const enabledCount = skills.filter((s) => s.enabled).length;
-  const totalCount = skills.length;
-  const totalUsage = skills.reduce((sum, s) => sum + (s.usage || 0), 0);
+  const allSkills = builtin.concat(custom);
+  const enabledCount = allSkills.filter((s) => s.enabled).length;
+  const totalCount = allSkills.length;
+  const totalUsage = 0;
   $("#skp-status").innerHTML =
-    `已启用 <b>${enabledCount}</b> / ${totalCount} 项　·　累计调用 <b>${totalUsage}</b> 次` +
-    (status.builtin_total != null ? `　·　内置 ${status.builtin_total} / 自定义 ${status.custom_total}` : "");
+    `已启用 <b>${enabledCount}</b> / ${totalCount} 项　·　内置 ${builtin.length} / 自定义 ${custom.length}`;
 
   // 内置 grid
   $("#skp-builtin-grid").innerHTML = builtin.map(renderSkillCard).join("");
@@ -2247,7 +2370,7 @@ function renderSkills() {
     $("#skp-custom-grid").innerHTML = "";
     $("#skp-custom-empty").classList.remove("hidden");
   } else {
-    $("#skp-custom-grid").innerHTML = custom.map(renderSkillCard).join("");
+    $("#skp-custom-grid").innerHTML = custom.map((s) => renderSkillCard({ ...s, kind: "custom" })).join("");
     $("#skp-custom-empty").classList.add("hidden");
   }
 
@@ -2294,16 +2417,20 @@ function renderSkillCard(s) {
 
 async function toggleSkill(name) {
   try {
-    const res = await api(`/api/skills/${encodeURIComponent(name)}/toggle`, { method: "POST" });
+    const res = await api(`/api/skills/${encodeURIComponent(name)}/toggle`, { method: "POST", body: "{}" });
     if (res.error) {
       toast(res.error, "err");
       await loadSkills();
       return;
     }
-    // 局部更新 (避免整列表闪烁)
+    // 局部更新 (避免整列表闪烁) — 内置在 skills, 自定义在 custom
     if (skData) {
       const s = skData.skills.find((x) => x.name === name);
       if (s) s.enabled = res.enabled;
+      else {
+        const cs = skData.custom.find((x) => x.name === name);
+        if (cs) cs.enabled = res.enabled;
+      }
       renderSkills();
     }
     toast(`${name} 已${res.enabled ? "启用" : "禁用"}`, "ok", 1500);

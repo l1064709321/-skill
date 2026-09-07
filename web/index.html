@@ -126,14 +126,17 @@
     </div>
   </main>
 
-  <!-- 右侧章节预览抽屉 -->
+  <!-- 章节专属全屏页面 -->
   <aside class="drawer" id="drawer">
     <div class="drawer-head">
-      <span id="drawer-title">章节内容</span>
+      <div class="drawer-title-wrap">
+        <button class="drawer-back" id="drawer-back">← 返回</button>
+        <span id="drawer-title">章节</span>
+      </div>
       <div class="drawer-actions">
         <button class="btn ghost sm" id="drawer-edit">编辑</button>
         <button class="btn primary sm hidden" id="drawer-save">保存</button>
-        <button class="btn ghost sm" id="drawer-close">✕</button>
+        <button class="btn ghost sm" id="drawer-close">关闭</button>
       </div>
     </div>
     <div class="drawer-body" id="drawer-body"></div>
@@ -215,7 +218,7 @@
             <label class="chip"><input type="checkbox" value="character-designer"><span>角色师</span></label>
             <label class="chip"><input type="checkbox" value="consistency-checker"><span>质检员</span></label>
             <label class="chip"><input type="checkbox" value="story-explorer"><span>资料员</span></label>
-            <label class="chip"><input type="checkbox" value="worldbuilder"><span>设定管理员</span></label>
+            <label class="chip"><input type="checkbox" value="presenter"><span>监制</span></label>
           </div>
         </label>
         <label class="skp-field">

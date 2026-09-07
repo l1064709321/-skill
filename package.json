@@ -1,36 +1,39 @@
 {
   "name": "tianyan",
-  "version": "0.0.4",
-  "description": "天衍 - 多Agent协同小说创作系统, 7个专家Agent, 5阶段写作流水线, 33维审计, 111位白金作家语料库",
-  "main": "run.py",
+  "version": "0.2.0",
+  "type": "module",
+  "description": "多Agent协同长篇小说创作系统 — 7 Agent · 36工具 · 111位作家语料库",
   "scripts": {
-    "postinstall": "node scripts/install.js",
-    "start": "node scripts/start.js",
-    "setup": "node scripts/install.js"
+    "postinstall": "node -e \"try{require('child_process').execSync('python3 --version',{stdio:'ignore'})}catch{console.warn('⚠  未检测到 Python 3，技能桥接将使用降级模式（无审计/拆书/AI味检测）。安装 Python 3 后重新运行即可。')}\"",
+    "prestart": "npx tsc --noEmit 2>/dev/null || npx tsc",
+    "start": "node dist/index.js",
+    "dev": "npx tsc --noEmit 2>/dev/null || npx tsc && node dist/index.js",
+    "build": "tsc",
+    "clean": "rm -rf dist"
   },
-  "keywords": [
-    "novel",
-    "ai",
-    "agent",
-    "writing",
-    "multi-agent",
-    "creative-writing",
-    "chinese-novel"
-  ],
-  "author": "tianyan",
-  "license": "AGPL-3.0",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/l1064709321/tianyan.git"
+  "dependencies": {
+    "@hono/node-server": "^1.8.0",
+    "better-sqlite3": "^11.0.0",
+    "hono": "^4.0.0",
+    "playwright": "^1.63.0",
+    "playwright-extra": "^4.3.6",
+    "puppeteer-extra-plugin-stealth": "^2.11.2",
+    "yaml": "^2.4.0"
   },
-  "publishConfig": {
-    "registry": "https://registry.npmjs.org"
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.0",
+    "@types/node": "^22.0.0",
+    "typescript": "^5.5.0"
   },
-  "bugs": {
-    "url": "https://github.com/l1064709321/tianyan/issues"
-  },
-  "homepage": "https://github.com/l1064709321/tianyan#readme",
   "engines": {
-    "node": ">=16.0.0"
-  }
+    "node": ">=18.0.0"
+  },
+  "files": [
+    "dist/",
+    "src/",
+    "web/",
+    "app/",
+    "README.md",
+    "LICENSE"
+  ]
 }

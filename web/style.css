@@ -30,8 +30,8 @@
   /* 字号缩放变量 (主题切换时动态修改) */
   --font-scale:1;
   --base-font:14px;
-  --chat-msg-font:15.5px;
-  --chat-line:1.85;
+  --chat-msg-font:13.5px;
+  --chat-line:1.5;
 }
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%}
@@ -42,10 +42,14 @@ body{font-family:var(--sans);background:var(--paper);color:var(--ink);font-size:
     radial-gradient(ellipse at bottom, rgba(216,200,158,.3), transparent 60%);}
 .app{display:flex;height:100vh;overflow:hidden}
 
-/* sidebar — 书脊感 */
+/* sidebar — 书脊感, 可折叠 (桌面/移动通用) */
 .sidebar{width:264px;flex-shrink:0;background:var(--paper2);border-right:1px solid var(--border);
   display:flex;flex-direction:column;padding:14px 12px;overflow-y:auto;
-  box-shadow:inset -2px 0 4px rgba(46,31,21,.06)}
+  box-shadow:inset -2px 0 4px rgba(46,31,21,.06);
+  position:fixed;left:0;top:0;bottom:0;z-index:50;
+  transform:translateX(-100%);transition:transform .2s ease}
+.sidebar.open{transform:translateX(0)}
+.sidebar-close{display:inline-block}
 .brand{font-size:16px;font-weight:700;padding:6px 6px 16px;display:flex;align-items:center;gap:8px;
   font-family:var(--serif);color:var(--ink);letter-spacing:.6px;
   border-bottom:1px solid var(--border);margin-bottom:10px}
@@ -84,7 +88,7 @@ body{font-family:var(--sans);background:var(--paper);color:var(--ink);font-size:
 
 /* main */
 .main{flex:1;display:flex;flex-direction:column;min-width:0}
-.topbar{height:52px;border-bottom:1px solid var(--border);display:flex;align-items:center;
+.topbar{height:52px;border-bottom:1px solid var(--border);display:flex;align-items:center;position:relative;z-index:60 !important;
   gap:10px;padding:0 14px;background:var(--paper2);
   box-shadow:0 1px 3px rgba(46,31,21,.05);position:sticky;top:0;z-index:20;min-width:0}
 .proj-info{font-weight:600;font-size:14px;flex:0 1 auto;min-width:0;
@@ -139,7 +143,7 @@ body{font-family:var(--sans);background:var(--paper);color:var(--ink);font-size:
   color:var(--ink);padding:11px 16px;border-radius:12px 12px 4px 12px;max-width:78%;
   font-family:var(--sans);font-size:calc(var(--chat-msg-font) * 0.92);line-height:var(--chat-line)}
 .msg.assistant .bubble{background:var(--paper2);border:1px solid var(--border);
-  border-radius:var(--radius-lg);padding:14px 18px;max-width:100%;width:100%;
+  border-radius:var(--radius-lg);padding:10px 14px;max-width:100%;width:100%;
   font-family:var(--serif);font-size:var(--chat-msg-font);line-height:var(--chat-line)}
 .bubble{white-space:pre-wrap;word-break:break-word}
 .bubble code{background:var(--paper4);padding:1px 5px;border-radius:3px;font-family:var(--mono);font-size:12px;
@@ -442,19 +446,24 @@ body{font-family:var(--sans);background:var(--paper);color:var(--ink);font-size:
 .cmdk-empty{padding:20px;text-align:center;color:var(--muted);font-family:var(--sans)}
 @media(max-width:520px){.agent-panel{width:100%}}
 
-/* drawer — 章节预览(像翻书) */
-.drawer{width:0;border-left:1px solid var(--border);background:var(--paper2);overflow:hidden;
-  transition:width .2s;flex-shrink:0;box-shadow:-2px 0 4px rgba(61,43,31,.06)}
-.drawer.open{width:440px;display:flex;flex-direction:column}
-.drawer-head{height:48px;display:flex;align-items:center;justify-content:space-between;padding:0 12px;
-  border-bottom:1px solid var(--border);font-family:var(--sans);font-weight:600}
-.drawer-actions{display:flex;gap:4px;align-items:center}
-.drawer-body{flex:1;overflow-y:auto;padding:24px 20px;white-space:pre-wrap;line-height:1.95;
-  font-size:16px;font-family:var(--serif);color:var(--ink);background:var(--paper)}
-.drawer-body h3{margin:12px 0 8px;color:var(--accent);font-family:var(--sans);font-size:14px}
-.drawer-edit-area{flex:1;margin:0;border:none;border-top:1px solid var(--border);
-  background:var(--paper);color:var(--ink);padding:24px 20px;font-family:var(--serif);font-size:16px;
-  line-height:1.95;resize:none;outline:none}
+/* drawer — 章节专属全屏页面 */
+.drawer{display:none;position:fixed;inset:0;z-index:80;flex-direction:column;
+  background:var(--paper);overflow:hidden}
+.drawer.open{display:flex}
+.drawer-head{height:52px;display:flex;align-items:center;justify-content:space-between;padding:0 16px;
+  border-bottom:1px solid var(--border);font-family:var(--sans);font-weight:600;
+  background:var(--paper2);flex-shrink:0}
+.drawer-title-wrap{display:flex;align-items:center;gap:10px;min-width:0}
+.drawer-back{background:transparent;border:1px solid var(--border);border-radius:8px;color:var(--ink2);
+  cursor:pointer;font-size:13px;padding:5px 12px;font-family:var(--sans);white-space:nowrap}
+.drawer-back:hover{background:var(--paper4);color:var(--ink)}
+.drawer-actions{display:flex;gap:6px;align-items:center;flex-shrink:0}
+.drawer-body{flex:1;overflow-y:auto;padding:32px clamp(20px,6vw,200px);white-space:pre-wrap;line-height:2;
+  font-size:clamp(16px,2vw,18px);font-family:var(--serif);color:var(--ink);background:var(--paper)}
+.drawer-body h3{margin:18px 0 10px;color:var(--accent);font-family:var(--sans);font-size:14px}
+.drawer-edit-area{flex:1;margin:0;border:none;background:var(--paper);color:var(--ink);
+  padding:32px clamp(20px,6vw,200px);font-family:var(--serif);font-size:clamp(16px,2vw,18px);
+  line-height:2;resize:none;outline:none}
 
 /* 文件树 */
 .proj-selector{padding:0 10px 8px;display:flex;gap:6px;align-items:center}
@@ -752,15 +761,10 @@ body{font-family:var(--sans);background:var(--paper);color:var(--ink);font-size:
 .scrim{position:fixed;inset:0;background:rgba(61,43,31,.4);z-index:40;display:none}
 .scrim.show{display:block}
 @media(max-width:860px){
-  .icon-only{display:inline-block}
-  .sidebar{position:fixed;left:0;top:0;bottom:0;z-index:50;transform:translateX(-100%);
-    transition:transform .2s;width:280px}
-  .sidebar.open{transform:translateX(0)}
-  .sidebar-close{display:inline-block}
+  .sidebar{width:280px}
   .status{display:none}
   .actions .btn{padding:7px 9px;font-size:12px}
   #model-label{display:none}
-  .drawer.open{width:100%}
   .composer{max-width:none}
 }
 
@@ -1178,3 +1182,15 @@ body{font-family:var(--sans);background:var(--paper);color:var(--ink);font-size:
 /* 思考流式文本的打字光标 */
 .think-stream-text::after{content:"▋";color:var(--blue);animation:cursorBlink 1s steps(2) infinite;margin-left:1px}
 @keyframes cursorBlink{50%{opacity:0}}
+
+/* 项目下拉: 行布局 + 删除按钮 */
+.proj-opt-row{display:flex;align-items:center;width:100%;border-bottom:1px solid var(--border);
+  padding:0 4px 0 0}
+.proj-opt-row:last-child{border-bottom:none}
+.proj-opt-row .proj-opt{flex:1;display:flex;align-items:center;justify-content:space-between;gap:8px;
+  background:none;border:none;padding:8px 10px;text-align:left;cursor:pointer;color:var(--ink);font-size:13px}
+.proj-opt-row .proj-opt:hover{background:var(--paper3)}
+.proj-opt-row .proj-opt .meta{color:var(--muted);font-size:11px}
+.proj-opt-row .proj-del{background:none;border:none;color:var(--muted);cursor:pointer;font-size:12px;
+  padding:6px 8px;border-radius:4px}
+.proj-opt-row .proj-del:hover{color:var(--red);background:var(--paper3)}
