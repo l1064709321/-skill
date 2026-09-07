@@ -1,6 +1,6 @@
 {
   "name": "tianyan",
-  "version": "0.3.0",
+  "version": "0.2.0",
   "type": "module",
   "description": "多Agent协同长篇小说创作系统 — 7 Agent · 36工具 · 111位作家语料库",
   "scripts": {

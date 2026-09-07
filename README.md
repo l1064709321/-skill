@@ -72,9 +72,14 @@
 - **Node.js ≥ 18** ([下载](https://nodejs.org))
 - **Python 3** (可选，用于技能桥接/审计/AI味检测)
 
-### 一键启动
+### 方式一：克隆源码（推荐）
 
 ```bash
+# 1. 克隆仓库
+git clone https://github.com/l1064709321/tianyan.git
+cd tianyan
+
+# 2. 一键启动（自动安装依赖 + 编译 + 启动）
 # Linux / macOS
 bash start.sh
 
@@ -97,9 +102,23 @@ nano ~/.tianyan/config.yaml
 
 修改 `default_model.api_key` 为你的 API Key。
 
-### 手动启动
+### 方式二：npm 包安装
 
 ```bash
+# 全局安装
+npm install -g tianyan
+
+# 启动
+tianyan
+```
+
+首次运行会自动初始化配置文件，编辑 `~/.tianyan/config.yaml` 填入 API Key。
+
+### 方式三：手动启动
+
+```bash
+git clone https://github.com/l1064709321/tianyan.git
+cd tianyan
 npm install
 npm run build
 node dist/index.js
