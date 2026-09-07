@@ -220,15 +220,6 @@ tianyan/
 
 ---
 
-## 🗄️ 数据存储
-
-- 数据库：`~/.tianyan/novel.db` (SQLite)
-- 截图：`~/.tianyan/screenshots/`
-- 导出文件：`~/.tianyan/exports/`
-- **config.yaml** 已 gitignore，不入仓库
-
----
-
 ## 📜 License
 
 - 代码：[GNU AGPL v3](LICENSE)
