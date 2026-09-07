@@ -4,6 +4,7 @@
 
 **7 个 Agent 协同**，按强制流水线完成从扫榜调研到定稿交付的完整长篇创作闭环，内置「毒舌总编」审稿机制、35 维质检打回循环、真实浏览器扫榜。
 
+![Python](https://img.shields.io/badge/Python-3.10+-blue)
 ![Node.js](https://img.shields.io/badge/Node.js-18+-339933?logo=node.js)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.x-blue?logo=typescript)
 ![Hono](https://img.shields.io/badge/Hono-4-green)
