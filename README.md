@@ -1,13 +1,18 @@
 # 天衍 (Tianyan)
 
-> 多 Agent 协同 AI 小说创作系统 — TypeScript 重写版
+一个多Agent协同的**天衍**(Web 界面)。7 个 agent 协同,按 7 步流水线完成从扫榜调研到定稿交付的完整长篇创作闭环,内置「毒舌总编」审稿机制与质检打回循环。
 
 **7 个 Agent 协同**，按强制流水线完成从扫榜调研到定稿交付的完整长篇创作闭环，内置「毒舌总编」审稿机制、35 维质检打回循环、真实浏览器扫榜。
 
-[![Node.js 18+](https://img.shields.io/badge/Node.js-18+-339933?logo=node.js)](https://nodejs.org)
-[![TypeScript 5](https://img.shields.io/badge/TypeScript-5.x-blue?logo=typescript)](https://www.typescriptlang.org)
-[![Hono](https://img.shields.io/badge/Hono-4-green)](https://hono.dev)
+![Python](https://img.shields.io/badge/Python-3.10+-blue)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.110+-green)
+![Node.js](https://img.shields.io/badge/Node.js-18+-339933?logo=node.js)
+![TypeScript](https://img.shields.io/badge/TypeScript-5.x-blue?logo=typescript)
+![Hono](https://img.shields.io/badge/Hono-4-green)
+![npm](https://img.shields.io/badge/npm-install-blue)
+[![自定义协议](https://img.shields.io/badge/📄-自定义协议-0052d9)](USER_AGREEMENT.md)
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL--3.0-blueviolet)](https://www.gnu.org/licenses/agpl-3.0.html)
+[![License: GPL v3](https://img.shields.io/badge/License-GPL--3.0-red)](https://www.gnu.org/licenses/gpl-3.0.html)
 
 ---
 
