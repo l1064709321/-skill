@@ -233,6 +233,49 @@ def init_db() -> None:
                 UNIQUE(project_id, chapter_idx),
                 FOREIGN KEY(project_id) REFERENCES projects(id) ON DELETE CASCADE
             );
+            -- 短期记忆 (session-scoped, TTL 过期, 项目切换时清空)
+            CREATE TABLE IF NOT EXISTS session_memories (
+                id TEXT PRIMARY KEY,
+                project_id TEXT NOT NULL,
+                session_id TEXT NOT NULL,        -- 会话标识 (切换项目时变)
+                category TEXT NOT NULL,           -- preference|context|decision|feedback
+                topic TEXT NOT NULL,              -- 记忆主题 (用于冲突检测)
+                content TEXT NOT NULL,            -- 记忆内容
+                source TEXT DEFAULT 'auto',       -- user|agent|auto (来源优先级)
+                relevance REAL DEFAULT 1.0,       -- 相关性分数 (0-1, 越高越重要)
+                created_at REAL,
+                expires_at REAL,                  -- TTL 过期时间戳
+                FOREIGN KEY(project_id) REFERENCES projects(id) ON DELETE CASCADE
+            );
+            CREATE INDEX IF NOT EXISTS idx_session_memories_project ON session_memories(project_id, session_id);
+            CREATE INDEX IF NOT EXISTS idx_session_memories_topic ON session_memories(project_id, topic);
+            -- 长期记忆 (persistent, 永不过期, 可被新记忆 supersede)
+            CREATE TABLE IF NOT EXISTS long_term_memories (
+                id TEXT PRIMARY KEY,
+                project_id TEXT NOT NULL,
+                category TEXT NOT NULL,           -- character|plot|style|preference|world|lesson
+                topic TEXT NOT NULL,              -- 记忆主题 (冲突检测键)
+                content TEXT NOT NULL,            -- 记忆内容
+                source TEXT DEFAULT 'agent',      -- user|agent|auto
+                priority INTEGER DEFAULT 5,       -- 1-10, 用户显式设定最高
+                superseded_by TEXT,               -- 被哪条新记忆取代 (NULL=当前有效)
+                created_at REAL,
+                updated_at REAL,
+                FOREIGN KEY(project_id) REFERENCES projects(id) ON DELETE CASCADE
+            );
+            CREATE INDEX IF NOT EXISTS idx_ltm_project ON long_term_memories(project_id, category);
+            CREATE INDEX IF NOT EXISTS idx_ltm_topic ON long_term_memories(project_id, topic);
+            -- 记忆冲突日志 (记录冲突解决过程, 供调试)
+            CREATE TABLE IF NOT EXISTS memory_conflicts (
+                id TEXT PRIMARY KEY,
+                project_id TEXT NOT NULL,
+                old_memory_id TEXT NOT NULL,      -- 被取代的记忆
+                new_memory_id TEXT NOT NULL,      -- 新记忆
+                resolution TEXT NOT NULL,         -- superseded|merged|kept_both
+                reason TEXT,                      -- 冲突原因说明
+                created_at REAL,
+                FOREIGN KEY(project_id) REFERENCES projects(id) ON DELETE CASCADE
+            );
             """
         )
     # 中断恢复: 上次进程异常退出 (kill/崩溃) 会留下 status='running' 的孤儿 run

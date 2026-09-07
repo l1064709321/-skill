@@ -5,7 +5,7 @@
 - 内核层 (data/skills_core.py): 5686 行原样复制的技能实现,不改一行
   - NovelDeconstructionSkill 统一入口,11 个方法覆盖全部能力
   - 含 4000+ 行 NOVEL_DECONSTRUCTION_DB 拆解数据库
-  - 33 维 NovelAuditor / AIDetector / ContinuationEngine / StyleImitator
+  - 35 维 NovelAuditor / AIDetector / ContinuationEngine / StyleImitator
   - OpeningDiagnosis / EditorialPipeline
 - 适配层 (本文件): 薄封装,把内核方法对接到 tianyan 的工具签名
   - 单例化 NovelDeconstructionSkill (避免重复加载 4000 行 DB)
@@ -61,6 +61,8 @@ def get_skill():
 
 def skill_status() -> dict:
     """技能内核加载状态,供排查问题用。"""
+    # 触发懒加载,确保 loaded 状态准确
+    get_skill()
     return {
         "available": _SKILL_AVAILABLE,
         "loaded": _skill_instance is not None,
@@ -75,7 +77,7 @@ def skill_status() -> dict:
 def deconstruct(user_input: str, return_prompt_only: bool = True) -> dict:
     """拆书解构: 解析用户意图, 匹配作家/作品, 生成拆解 Prompt。
 
-    user_input: 自然语言, 如 "帮我拆解古龙的武侠风格" / "拆解《凡人修仙传》的节奏"
+    user_input: 自然语言, 如 "帮我拆解武侠江湖风格" / "拆解《凡人修仙传》的节奏"
     return_prompt_only: True=只返回拆解 prompt (推荐给 LLM 用);
                         False=返回完整结构 (intent + matched_authors + final_prompt)
     """
@@ -93,7 +95,7 @@ def deconstruct(user_input: str, return_prompt_only: bool = True) -> dict:
 
 
 def audit_novel(text: str, outline: Optional[str] = None) -> dict:
-    """33 维审计: 对正文做 33 个维度的专业审计, 输出结构化报告。
+    """35 维审计: 对正文做 33 个维度的专业审计, 输出结构化报告。
 
     text: 待审计的正文
     outline: 可选, 大纲/细纲, 用于对照审计
@@ -140,6 +142,15 @@ def diagnose_opening(text: str) -> dict:
 
     text: 前 1-3 章正文
     """
+    if len(text.strip()) < 50:
+        return {
+            "opening_report": {"total_score": 0, "issues": ["文本过短,无法诊断"],
+                                "suggestions": ["请提供至少 50 字的正文内容"], "hook_score": 0,
+                                "character_score": 0, "conflict_score": 0,
+                                "worldbuilding_score": 0, "pacing_score": 0},
+            "opening_text": "文本过短 (不足 50 字), 无法进行黄金三章诊断。请提供至少一段完整章节。",
+            "text_length": len(text),
+        }
     sk = get_skill()
     if sk is None:
         return {"error": "技能内核未加载", **skill_status()}
@@ -168,9 +179,10 @@ def analyze_style(text: str, author_name: Optional[str] = None) -> dict:
         return {"error": f"文风分析失败: {e}"}
 
 
-def imitate_style(reference_text: str, topic: str, word_count: int = 800) -> dict:
+async def imitate_style(reference_text: str, topic: str, word_count: int = 800) -> dict:
     """文风仿写: 按参考文本的文风, 仿写指定话题。
 
+    内核 imitate_style 返回仿写 prompt, 本方法自动调 LLM 生成正文。
     reference_text: 参考原文 (从原文学文风)
     topic: 要仿写的话题/场景
     word_count: 仿写字数
@@ -179,8 +191,19 @@ def imitate_style(reference_text: str, topic: str, word_count: int = 800) -> dic
     if sk is None:
         return {"error": "技能内核未加载", **skill_status()}
     try:
-        result = sk.imitate_style(reference_text, topic, word_count)
-        return {"imitated_text": result, "topic": topic, "word_count": word_count}
+        prompt_text = sk.imitate_style(reference_text, topic, word_count)
+        from .llm import stream
+        from .config import get_settings
+        pieces: list[str] = []
+        async for tok in stream(
+            [{"role": "user", "content": prompt_text}],
+            get_settings().default_model,
+            temperature=0.85,
+            max_tokens=max(512, int(word_count * 2)),
+        ):
+            pieces.append(tok)
+        imitated_text = "".join(pieces)
+        return {"imitated_text": imitated_text, "topic": topic, "word_count": word_count}
     except Exception as e:
         return {"error": f"仿写失败: {e}"}
 
@@ -247,7 +270,7 @@ async def ghostwrite(outline_text: str, style_ref: Optional[str] = None,
         return {"error": "技能内核未加载", **skill_status()}
     try:
         # 1. 内核生成专业写作 prompt
-        prompt_text = sk.ghostwrite(outline_text, style_ref, chapter, words)
+        prompt_text = sk.ghostwrite(outline_text, style_ref, chapter, words, author_name=author_name)
         # 2. 自动调 LLM 把 prompt 变成正文
         from .llm import stream
         from .config import get_settings
@@ -281,7 +304,7 @@ async def ghostwrite(outline_text: str, style_ref: Optional[str] = None,
 
 
 def full_audit(text: str, outline: Optional[str] = None) -> dict:
-    """完整审计: 33 维审计 + AI 味检测, 一次性出综合报告。"""
+    """完整审计: 35 维审计 + AI 味检测, 一次性出综合报告。"""
     sk = get_skill()
     if sk is None:
         return {"error": "技能内核未加载", **skill_status()}
@@ -297,3 +320,56 @@ def full_audit(text: str, outline: Optional[str] = None) -> dict:
         }
     except Exception as e:
         return {"error": f"完整审计失败: {e}"}
+
+
+def editor_review(text: str, outline: Optional[str] = None) -> dict:
+    """毒舌编辑: 35维审计 + AI味检测, 返回结构化报告。
+
+    与 full_audit 类似, 但返回格式更适合逐章审稿场景。
+    """
+    sk = get_skill()
+    if sk is None:
+        return {"error": "技能内核未加载", **skill_status()}
+    try:
+        report = sk.pipeline.editor(text, outline)
+        return {
+            "audit_text": report.get("audit", ""),
+            "ai_text": report.get("ai_flavor", ""),
+            "audit_report": report.get("audit_raw", {}),
+            "ai_issues": report.get("ai_raw", []),
+            "text_length": len(text),
+        }
+    except Exception as e:
+        return {"error": f"编辑审稿失败: {e}"}
+
+
+async def rewriter(text: str, issues: str) -> dict:
+    """改稿编辑: 根据审计报告修改文本。
+
+    text: 待修改的原文
+    issues: 审计发现的问题 (JSON 字符串或文本)
+    """
+    sk = get_skill()
+    if sk is None:
+        return {"error": "技能内核未加载", **skill_status()}
+    try:
+        import json as _json
+        try:
+            issues_list = _json.loads(issues) if isinstance(issues, str) else issues
+        except _json.JSONDecodeError:
+            issues_list = [{"level": "中等", "message": issues, "suggestion": ""}]
+        prompt_text = sk.pipeline.rewriter(text, issues_list)
+        from .llm import stream
+        from .config import get_settings
+        pieces: list[str] = []
+        async for tok in stream(
+            [{"role": "user", "content": prompt_text}],
+            get_settings().default_model,
+            temperature=0.7,
+            max_tokens=max(1024, len(text) * 2),
+        ):
+            pieces.append(tok)
+        rewritten_text = "".join(pieces)
+        return {"rewritten_text": rewritten_text, "text_length": len(rewritten_text)}
+    except Exception as e:
+        return {"error": f"改稿失败: {e}"}

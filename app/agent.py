@@ -787,11 +787,11 @@ async def _run_sub_agent(
     return f"(子 agent {agent_name} 达到最大步数 {sub_max_steps},任务未完全完成)"
 
 
-async def _extract_and_save_memory_safe(pid: str, user_input: str, response: str) -> None:
+async def _extract_and_save_memory_safe(pid: str, user_input: str, response: str, run_id: str = "") -> None:
     """安全提取记忆 (失败不影响主流程)"""
     try:
         from .memory import extract_and_save_memory
-        await extract_and_save_memory(pid, user_input, response)
+        await extract_and_save_memory(pid, user_input, response, session_id=run_id)
     except Exception as e:
         logger.debug(f"[记忆] 提取失败 (非致命): {e}")
 
@@ -999,7 +999,7 @@ async def run(
             # 改进: 异步提取关键信息写入长期记忆 (不阻塞响应)
             try:
                 asyncio.ensure_future(
-                    _extract_and_save_memory_safe(pid, user_input, content)
+                    _extract_and_save_memory_safe(pid, user_input, content, run_id=run_id)
                 )
             except Exception:
                 pass

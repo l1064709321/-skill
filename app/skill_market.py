@@ -38,7 +38,7 @@ BUILTIN_SKILLS: list[dict] = [
     {
         "name": "list_authors",
         "label": "作家列表",
-        "description": "列出语料库中 110+ 位白金作家的全部名单,供主笔/架构师选参考",
+        "description": "列出写作风格库中的全部风格,供主笔/架构师选参考",
         "category": "corpus",
         "source": "skill_library",
         "agents": ["orchestrator", "story-architect", "narrative-writer"],
@@ -102,7 +102,7 @@ BUILTIN_SKILLS: list[dict] = [
     # ---- 审计类 (skill_adapter) ----
     {
         "name": "audit_novel",
-        "label": "33 维审计",
+        "label": "35 维审计",
         "description": "从情节/人设/世界观/逻辑/文笔等 33 个维度审计正文,出问题清单",
         "category": "audit",
         "source": "skill_adapter",
@@ -130,7 +130,7 @@ BUILTIN_SKILLS: list[dict] = [
     {
         "name": "full_audit",
         "label": "完整审计",
-        "description": "33 维 + AI 味 + 黄金三章一次过,定稿前必跑",
+        "description": "35 维 + AI 味 + 黄金三章一次过,定稿前必跑",
         "category": "audit",
         "source": "skill_adapter",
         "agents": ["orchestrator", "consistency-checker"],

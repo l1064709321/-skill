@@ -50,33 +50,56 @@ def _check_restrictedpython() -> bool:
 
 
 def _precheck_code(code: str) -> Optional[str]:
-    """用 RestrictedPython 预检代码, 返回错误消息或 None.
+    """安全预检: 白名单模式, 拦截危险操作。
 
-    拦截:
-    - RestrictedPython 编译器: eval, exec, __import__ 等
-    - 手动检查: import os/subprocess/shutil/socket 等危险模块
+    拦截: eval/exec/compile/__import__/__builtins__/危险import
+    放行: math/random/json/re/datetime 等纯计算模块
+    RestrictedPython 不可用时拒绝执行。
     """
-    # 1. 手动检查危险 import (RestrictedPython 不拦截普通 import)
+    import re as _re
+
+    # 1. 危险内置函数调用 (无论是否 import)
+    dangerous_calls = [
+        (r"eval\s*\(", "eval"),
+        (r"exec\s*\(", "exec"),
+        (r"compile\s*\(", "compile"),
+        (r"__import__\s*\(", "__import__"),
+        (r"__builtins__", "__builtins__"),
+        (r"globals\s*\(\s*\)", "globals()"),
+        (r"locals\s*\(\s*\)", "locals()"),
+        (r"vars\s*\(\s*\)", "vars()"),
+        (r"breakpoint\s*\(\s*\)", "breakpoint()"),
+    ]
+    for pattern, label in dangerous_calls:
+        if _re.search(pattern, code):
+            return f"代码预检失败: 禁止使用 {label} (沙箱安全限制)"
+
+    # 2. 白名单模块
+    safe_modules = {
+        'math', 'random', 'datetime', 'json', 're', 'string',
+        'collections', 'itertools', 'functools', 'operator',
+        'textwrap', 'decimal', 'fractions', 'statistics',
+        'copy', 'pprint', 'heapq', 'bisect', 'array',
+    }
     dangerous_modules = {
         'os', 'subprocess', 'shutil', 'socket', 'http', 'urllib',
         'requests', 'httpx', 'aiohttp', 'ctypes', 'signal',
         'multiprocessing', 'threading', 'importlib', 'code',
         'codeop', 'compileall', 'zipimport', 'pkgutil',
+        'sys', 'io', 'pathlib', 'tempfile', 'glob',
+        'pickle', 'shelve', 'sqlite3', 'csv', 'xml',
+        'ast', 'dis', 'inspect', 'pdb', 'profile',
     }
-    import re as _re
-    # 匹配 `import xxx` 和 `from xxx import yyy` (支持缩进)
-    for m in _re.finditer(r'^\s*(?:import|from)\s+(\w+)', code, _re.MULTILINE):
+    for m in _re.finditer(r"^\s*(?:import|from)\s+(\w+)", code, _re.MULTILINE):
         mod = m.group(1)
         if mod in dangerous_modules:
             return f"代码预检失败: 禁止导入模块 '{mod}' (沙箱安全限制)"
+        if mod not in safe_modules:
+            return f"代码预检失败: 模块 '{mod}' 不在白名单中"
 
-    # 额外检查: __import__ 调用 (绕过普通 import 语句的方式)
-    if _re.search(r'__import__\s*\(', code):
-        return "代码预检失败: 禁止使用 __import__ (沙箱安全限制)"
-
-    # 2. RestrictedPython 编译器检查 (eval, exec, __import__ 等)
-    if not _check_restrictedpython():
-        return None  # RestrictedPython 不可用, 跳过编译检查
+    # 3. RestrictedPython 编译器检查 (第二道防线, 非必需)
+    # 如果前两道检查都通过且 RestrictedPython 不可用, 仍然放行
+    # RestrictedPython 主要拦截 eval/exec 等, 已在第 1 步拦截
     try:
         from RestrictedPython import compile_restricted
         bytecode = compile_restricted(code, "<sandbox>", "exec")
@@ -85,7 +108,6 @@ def _precheck_code(code: str) -> Optional[str]:
         return None
     except Exception as e:
         return f"代码预检异常: {e}"
-
 
 def execute_code(
     code: str,

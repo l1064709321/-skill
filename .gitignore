@@ -41,3 +41,7 @@ screenshots/
 .browsers/
 tianyan_promo.mp4
 tianyan_preview.png
+
+# Node.js
+node_modules/
+dist/

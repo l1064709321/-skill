@@ -21,9 +21,21 @@ from .exporter import export_project, parse_bytes
 WEB_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "web")
 
 app = FastAPI(title="天衍", version=__version__)
+
+# CORS: 默认只允许 localhost, 可通过 TIANYAN_CORS_ORIGINS 环境变量扩展
+# 例: TIANYAN_CORS_ORIGINS="http://localhost:8000,https://mydomain.com"
+_cors_origins_raw = os.environ.get("TIANYAN_CORS_ORIGINS", "")
+_cors_origins = [o.strip() for o in _cors_origins_raw.split(",") if o.strip()] if _cors_origins_raw else []
+# 始终允许 localhost (本地开发)
+for port in (8000, 3000, 5173, 4200):
+    for host in ("localhost", "127.0.0.1"):
+        origin = f"http://{host}:{port}"
+        if origin not in _cors_origins:
+            _cors_origins.append(origin)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=_cors_origins,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -31,15 +43,21 @@ app.add_middleware(
 # ---------- API 认证 (可选) ----------
 # 设置 TIANYAN_API_KEY 环境变量后, 所有 /api/* 请求必须带 Authorization: Bearer <key>
 # 不设置则无认证 (向后兼容, 适合本地开发)
+import hmac as _hmac
+
 _API_KEY = os.environ.get("TIANYAN_API_KEY", "").strip()
 
 @app.middleware("http")
 async def _auth_middleware(request, call_next):
     if _API_KEY and request.url.path.startswith("/api/"):
+        from fastapi.responses import JSONResponse
         auth = request.headers.get("authorization", "")
-        if not auth.endswith(_API_KEY):
-            from fastapi.responses import JSONResponse
-            return JSONResponse({"error": "Unauthorized"}, status_code=401)
+        # 严格校验: 必须是 "Bearer <key>" 格式, 且用常量时间比较
+        if not auth.startswith("Bearer "):
+            return JSONResponse({"error": "Unauthorized: missing Bearer token"}, status_code=401)
+        token = auth[7:]  # strip "Bearer "
+        if not _hmac.compare_digest(token, _API_KEY):
+            return JSONResponse({"error": "Unauthorized: invalid token"}, status_code=401)
     return await call_next(request)
 
 
@@ -829,7 +847,10 @@ def launcher_card():
 
 @app.post("/api/launcher/restart")
 def launcher_restart():
-    """通过卡片触发服务重启。优先用 na 脚本，否则走 Python 子进程。"""
+    """通过卡片触发服务重启。优先用 na 脚本，否则走 Python 子进程。
+    
+    安全: 需要 API Key 认证 (与其它 /api/* 一致)。
+    """
     import subprocess
     import sys
 

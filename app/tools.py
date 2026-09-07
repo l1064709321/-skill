@@ -99,16 +99,11 @@ def _retrieve_context(pid: str, query: str, k: int = 6) -> str:
     try:
         from .vector_store import hybrid_retrieve
         import asyncio
-        loop = asyncio.get_event_loop()
-        if loop.is_running():
-            # 在异步上下文中: 用 nest_asyncio 或直接降级
-            # 创建新的事件循环在后台线程执行
-            import concurrent.futures
-            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
-                future = pool.submit(asyncio.run, hybrid_retrieve(pid, query, top_k=k))
-                result = future.result(timeout=10)
-        else:
-            result = loop.run_until_complete(hybrid_retrieve(pid, query, top_k=k))
+        # 在新线程中创建独立事件循环执行异步函数, 避免与已有 loop 冲突
+        import concurrent.futures
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+            future = pool.submit(asyncio.run, hybrid_retrieve(pid, query, top_k=k))
+            result = future.result(timeout=10)
         if result and result != "(无可用上文)":
             return result
     except Exception:
@@ -1134,7 +1129,7 @@ TOOL_SCHEMA: list[dict] = [
         "type": "function",
         "function": {
             "name": "list_authors",
-            "description": "技能库:列出 111 位白金作家 (按流派分类)。用于了解可参考的作家范围。",
+            "description": "技能库:列出写作风格范式 (按流派分类)。用于了解可参考的风格范围。",
             "parameters": {"type": "object", "properties": {}},
         },
     },
@@ -1165,7 +1160,7 @@ TOOL_SCHEMA: list[dict] = [
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "author": {"type": "string", "description": "作家名(如 辰东/猫腻/忘语)"},
+                    "author": {"type": "string", "description": "风格名(如 史诗派/都市异能/武侠江湖)"},
                     "scene": {"type": "string",
                               "enum": ["battle", "dialogue", "environment", "psychology",
                                        "opening", "climax", "humor", "suspense",
@@ -1184,12 +1179,12 @@ TOOL_SCHEMA: list[dict] = [
         "type": "function",
         "function": {
             "name": "deconstruct",
-            "description": "技能内核-拆书解构:输入自然语言(如'拆解古龙的武侠风格'),从 111 位作家 DB 匹配并生成"
+            "description": "技能内核-拆书解构:输入自然语言(如'拆解武侠江湖风格'),从写作风格库匹配并生成"
             "外科手术级拆解 Prompt。返回的 deconstruction_prompt 可塞给 LLM 做深度拆解分析。",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "query": {"type": "string", "description": "拆解需求,如'拆解古龙的武侠风格'/'拆解《凡人修仙传》的节奏'"},
+                    "query": {"type": "string", "description": "拆解需求,如'拆解武侠江湖风格'/'拆解修仙派节奏'"},
                     "return_prompt_only": {"type": "boolean", "description": "True=只返回 prompt(默认);False=返回完整结构"},
                 },
                 "required": ["query"],
@@ -1215,7 +1210,7 @@ TOOL_SCHEMA: list[dict] = [
         "type": "function",
         "function": {
             "name": "audit_novel",
-            "description": "技能内核-33维审计:对正文做 33 个维度的专业审计(人设/情节/伏笔/节奏/逻辑/文风等),"
+            "description": "技能内核-35维审计:对正文做 35 个维度的专业审计(人设/情节/伏笔/节奏/逻辑/文风等),"
             "输出结构化报告。比 review_chapter 的毒舌审稿更系统全面,适合定稿前深度质检。",
             "parameters": {
                 "type": "object",
@@ -1330,7 +1325,7 @@ TOOL_SCHEMA: list[dict] = [
         "type": "function",
         "function": {
             "name": "full_audit",
-            "description": "技能内核-完整审计:33维审计 + AI味检测,一次性出综合报告。"
+            "description": "技能内核-完整审计:35维审计 + AI味检测,一次性出综合报告。"
             "定稿前必调,确保质量达标。",
             "parameters": {
                 "type": "object",
@@ -1339,6 +1334,38 @@ TOOL_SCHEMA: list[dict] = [
                     "outline": {"type": "string", "description": "大纲(可选)"},
                 },
                 "required": ["text"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "editor_review",
+            "description": "技能内核-毒舌编辑:35维审计 + AI味检测, 返回结构化报告和修改建议。"
+            "比 full_audit 更适合逐章审稿,输出格式更易读。",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "text": {"type": "string", "description": "待审稿的正文"},
+                    "outline": {"type": "string", "description": "大纲/细纲(可选,对照审稿用)"},
+                },
+                "required": ["text"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "rewriter",
+            "description": "技能内核-改稿编辑:根据审计报告修改文本,只改有问题的部分,保持原文精华。"
+            "传入原文 + 审计发现的问题列表,输出修改后的完整文本。",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "text": {"type": "string", "description": "待修改的原文"},
+                    "issues": {"type": "string", "description": "审计发现的问题列表(JSON字符串或文本)"},
+                },
+                "required": ["text", "issues"],
             },
         },
     },
@@ -1717,7 +1744,7 @@ async def dispatch(pid: str, name: str, args: dict) -> str:
             )
         elif name == "imitate_style":
             from . import skill_adapter
-            res = skill_adapter.imitate_style(
+            res = await skill_adapter.imitate_style(
                 args.get("reference_text", ""),
                 args.get("topic", ""),
                 word_count=int(args.get("word_count", 800)),
@@ -1744,6 +1771,18 @@ async def dispatch(pid: str, name: str, args: dict) -> str:
             res = skill_adapter.full_audit(
                 args.get("text", ""),
                 outline=args.get("outline"),
+            )
+        elif name == "editor_review":
+            from . import skill_adapter
+            res = skill_adapter.editor_review(
+                args.get("text", ""),
+                outline=args.get("outline"),
+            )
+        elif name == "rewriter":
+            from . import skill_adapter
+            res = await skill_adapter.rewriter(
+                args.get("text", ""),
+                args.get("issues", "[]"),
             )
         elif name == "web_fetch":
             res = await _web_fetch(
@@ -1903,6 +1942,17 @@ async def dispatch(pid: str, name: str, args: dict) -> str:
             res = {"error": f"未知工具 {name}"}
     except Exception as e:
         res = {"error": f"工具执行出错: {e}"}
+    # 记录技能调用次数 (skill_market 持久化)
+    _SKILL_NAMES = {"list_authors", "match_author", "get_author_reference",
+                    "deconstruct", "analyze_style", "imitate_style", "diagnose_stuck",
+                    "audit_novel", "detect_ai", "diagnose_opening", "full_audit",
+                    "ghostwrite", "skill_scout", "editor_review", "rewriter"}
+    if name in _SKILL_NAMES:
+        try:
+            from . import skill_market
+            skill_market.increment_usage(name)
+        except Exception:
+            pass
     return json.dumps(res, ensure_ascii=False)
 
 
@@ -2377,9 +2427,33 @@ async def _web_fetch(url: str, max_chars: int = 8000) -> dict:
     # 惰性导入 BeautifulSoup (bs4 是可选依赖, 仅网页抓取需要)
     BS = _get_bs4()
     if BS is None:
+        # bs4 未安装: 用正则粗提取正文
+        import re as _re
+        # 去掉 script/style/nav/footer/header
+        text = _re.sub(r"<script[^>]*>.*?</script>", "", html, flags=_re.DOTALL)
+        text = _re.sub(r"<style[^>]*>.*?</style>", "", text, flags=_re.DOTALL)
+        text = _re.sub(r"<nav[^>]*>.*?</nav>", "", text, flags=_re.DOTALL)
+        text = _re.sub(r"<footer[^>]*>.*?</footer>", "", text, flags=_re.DOTALL)
+        text = _re.sub(r"<header[^>]*>.*?</header>", "", text, flags=_re.DOTALL)
+        text = _re.sub(r"<aside[^>]*>.*?</aside>", "", text, flags=_re.DOTALL)
+        # 去掉所有 HTML 标签
+        text = _re.sub(r"<[^>]+>", " ", text)
+        # 清理空白
+        lines = [ln.strip() for ln in text.split("\n") if ln.strip()]
+        main_text = "\n".join(lines)
+        title = ""
+        title_m = _re.search(r"<title[^>]*>([^<]+)</title>", html, _re.IGNORECASE)
+        if title_m:
+            title = title_m.group(1).strip()
+        if len(main_text) > max_chars:
+            main_text = main_text[:max_chars] + f"\n\n… (已截断, 原文共 {len(main_text)} 字符)"
         return {
-            "error": "网页抓取需要 beautifulsoup4 库。请运行: pip install beautifulsoup4",
             "url": url,
+            "title": title,
+            "content": main_text,
+            "content_chars": len(main_text),
+            "fetched_at": __import__("time").time(),
+            "method": "regex-fallback",
         }
 
     # 优先用 lxml 解析 (快), 失败则用 html.parser (纯 Python, 无需编译)
@@ -2438,10 +2512,24 @@ async def _web_search(query: str, max_results: int = 8) -> dict:
 
     BS = _get_bs4()
     if BS is None:
-        return {
-            "error": "网页搜索需要 beautifulsoup4 库。请运行: pip install beautifulsoup4",
-            "query": query,
-        }
+        # bs4 未安装: 用正则降级提取搜索结果
+        import re as _re
+        results = []
+        # 提取 h2 > a 链接 (Bing 搜索结果的标题+URL)
+        for m in _re.finditer(r'<h2[^>]*><a[^>]+href="(https?://[^"]+)"[^>]*>([^<]+)</a></h2>', html):
+            url, title = m.group(1), m.group(2)
+            if title.strip() and url.startswith("http"):
+                # 跳过 Bing 自身链接
+                if "bing.com" in url or "microsoft.com" in url:
+                    continue
+                # 尝试提取摘要 (紧跟 h2 后的 p 标签)
+                snippet = ""
+                after = html[m.end():m.end()+500]
+                snip_m = _re.search(r"<p[^>]*>([^<]+)</p>", after)
+                if snip_m:
+                    snippet = snip_m.group(1).strip()[:200]
+                results.append({"title": title.strip(), "url": url, "snippet": snippet})
+        return {"query": query, "results": results[:max_results], "count": len(results), "source": "bing-regex"}
     soup = BS(html, "lxml")
     results = []
     # Bing 搜索结果结构: li.b_algo > h2 > a
@@ -2484,24 +2572,49 @@ async def _web_search(query: str, max_results: int = 8) -> dict:
 # 包括只读 agent (story-explorer, consistency-checker)。
 
 _BROWSER_TIMEOUT = 20.0  # 浏览器操作超时(秒)
+_BROWSER_IDLE_TIMEOUT = 300  # 浏览器空闲 5 分钟后自动关闭 (释放 200-500MB 内存)
 
 # 全局单例 browser 实例 (避免每次请求都启动浏览器)
 _browser: Any = None
 _playwright: Any = None
+_browser_last_used: float = 0.0  # 上次使用时间戳
 
 
 async def _get_browser():
     """获取或创建 Playwright browser 实例 (懒加载单例)。
 
     内核装在各平台系统默认位置 (Linux: ~/.cache/ms-playwright/,
-    Windows: %USERPROFILE%\AppData\Local\ms-playwright\),
+    Windows: %USERPROFILE%/AppData/Local/ms-playwright),
     不装进项目目录 —— 因为 Chromium 内核是平台二进制, Linux/Windows/macOS
     互不通用, 跟着项目走没意义且白占 300MB+。
     首次使用请跑项目根目录的一键安装脚本 (已固化国内镜像源):
       Linux/macOS: ./setup_browser.sh
       Windows:     setup_browser.bat
     """
-    global _browser, _playwright
+    global _browser, _playwright, _browser_last_used
+    # 空闲超时: 超过 _BROWSER_IDLE_TIMEOUT 秒未使用则关闭浏览器释放内存
+    if _browser is not None:
+        import time as _time
+        if _time.time() - _browser_last_used > _BROWSER_IDLE_TIMEOUT:
+            try:
+                import asyncio as _asyncio
+                if _asyncio.get_event_loop().is_running():
+                    # 在异步上下文中, 用 ensure_future 延迟关闭
+                    async def _close_idle_browser():
+                        global _browser, _playwright
+                        try:
+                            await _browser.close()
+                            await _playwright.stop()
+                        except Exception:
+                            pass
+                        _browser = None
+                        _playwright = None
+                    _asyncio.ensure_future(_close_idle_browser())
+                else:
+                    pass  # 非异步上下文, 不处理
+            except Exception:
+                pass
+            _browser = None  # 标记需要重建
     if _browser is None:
         try:
             from playwright.async_api import async_playwright
@@ -2523,6 +2636,7 @@ async def _get_browser():
                 "(已固化国内镜像源, 下载快): "
                 "Linux/macOS 执行 ./setup_browser.sh, Windows 执行 setup_browser.bat"
             )
+    _browser_last_used = __import__("time").time()
     return _browser, None
 
 
@@ -2542,6 +2656,8 @@ async def _browser_fetch(url: str, max_chars: int = 8000, *, wait_for: str = "ne
     try:
         page = await browser.new_page()
         try:
+            global _browser_last_used
+            _browser_last_used = __import__("time").time()
             await page.goto(url, wait_until=wait_for, timeout=_BROWSER_TIMEOUT * 1000)
             title = await page.title()
             # 提取页面正文文本
@@ -2588,6 +2704,8 @@ async def _browser_screenshot(url: str, *, full_page: bool = True) -> dict:
     try:
         page = await browser.new_page(viewport={"width": 1280, "height": 900})
         try:
+            global _browser_last_used
+            _browser_last_used = __import__("time").time()
             await page.goto(url, wait_until="networkidle", timeout=_BROWSER_TIMEOUT * 1000)
             title = await page.title()
             screenshot_bytes = await page.screenshot(full_page=full_page, type="png")

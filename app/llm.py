@@ -26,7 +26,7 @@ try:
     # 原版 _HTTP_TIMEOUT=60 导致 LLM 思考期间(>60s)请求被掐断 → ERR_STREAM_PREMATURE_CLOSE
     # 注意: litellm>=1.96 的 request_timeout_resolver 会执行 float(litellm.request_timeout),
     # 设为 None 会直接崩溃, 故用一个足够大的秒数表示"永不超时"
-    litellm.request_timeout = 86400
+    litellm.request_timeout = 300  # 单次 LLM 调用 5 分钟超时
     litellm.request_timeout_explicitly_set = False
     # litellm 内部重试 (指数退避), 覆盖 429/5xx/连接错误
     # 设为 2: 快速恢复 429 限流 (尊重 Retry-After 头), 不与应用层 5 次重试叠加过多
