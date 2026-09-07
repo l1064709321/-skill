@@ -132,6 +132,49 @@ const AGENT_ICONS = {
   worldbuilder: "🌐", // 兼容旧名
   planner: "📐", writer: "✍️", editor: "🔧",
 };
+// ============ 小说分类数据 ============
+const GENRE_DATA = {
+  "男频": {
+    "主分类": [
+      "西方奇幻","东方仙侠","科幻末世","男频衍生","都市高武",
+      "悬疑灵异","悬疑脑洞","抗战谍战","历史古代","历史脑洞",
+      "都市种田","都市脑洞","都市日常","玄幻脑洞","战神赘婿",
+      "动漫衍生","游戏体育","传统玄幻","都市修真"
+    ],
+    "主题": [
+      "衍生","仕途","综影视","天灾","第一人称","赛博朋克",
+      "第四天灾","规则怪谈","搞笑轻松","古代","悬疑",
+      "克苏鲁","都市异能","末日求生","灵气复苏"
+    ]
+  },
+  "女频": {
+    "主分类": [
+      "女频悬疑","古风世情","科幻末世","女频衍生","民国言情",
+      "悬疑脑洞","青春甜宠","双男主","古言脑洞","现言脑洞",
+      "玄幻言情","宫斗宅斗","豪门总裁","动漫衍生","星光璀璨",
+      "游戏体育","职场婚恋","双女主","年代","种田","快穿"
+    ],
+    "主题": [
+      "古言权谋","悬疑恋爱","纯爱","衍生","仕途",
+      "综影视","天灾","第一人称","赛博朋克","规则怪谈",
+      "搞笑轻松","古代","悬疑","谍战","职场商战"
+    ]
+  }
+};
+// 分类下拉填充
+function populateGenreSelects(audience) {
+  const data = GENRE_DATA[audience] || GENRE_DATA["男频"];
+  const genreSel = $("#p-genre");
+  const themeSel = $("#p-theme");
+  genreSel.innerHTML = '<option value="">-- 选择主分类 --</option>';
+  themeSel.innerHTML = '<option value="">-- 选择主题 --</option>';
+  data["主分类"].forEach(g => {
+    genreSel.innerHTML += '<option value="' + g + '">' + g + '</option>';
+  });
+  data["主题"].forEach(t => {
+    themeSel.innerHTML += '<option value="' + t + '">' + t + '</option>';
+  });
+}
 
 // 工具名 → 中文标签
 const TOOL_CN = {
@@ -1876,14 +1919,19 @@ document.querySelectorAll("#p-audience .aud-btn").forEach(btn => {
     document.querySelectorAll("#p-audience .aud-btn").forEach(b => b.classList.remove("active"));
     btn.classList.add("active");
     selectedAudience = btn.dataset.val;
+    populateGenreSelects(selectedAudience);
   });
 });
+// 初始化分类下拉
+populateGenreSelects(selectedAudience);
 
 $("#proj-cancel").addEventListener("click", () => $("#proj-modal").classList.remove("show"));
 $("#proj-ok").addEventListener("click", async () => {
+  const genreVal = $("#p-genre").value;
+  const themeVal = $("#p-theme").value;
   const body = {
     name: $("#p-name").value.trim(),
-    genre: $("#p-genre").value.trim(),
+    genre: [genreVal, themeVal].filter(Boolean).join(" / "),
     style: $("#p-style").value.trim(),
     premise: $("#p-premise").value.trim(),
     audience: selectedAudience,
@@ -1891,7 +1939,7 @@ $("#proj-ok").addEventListener("click", async () => {
   if (!body.name) return toast("请填名称", "warn");
   const p = await api("/api/projects", { method: "POST", body: JSON.stringify(body) });
   $("#proj-modal").classList.remove("show");
-  ["p-name", "p-genre", "p-style", "p-premise"].forEach((i) => ($("#" + i).value = ""));
+  ["p-name", "p-genre", "p-theme", "p-style", "p-premise"].forEach((i) => ($("#" + i).value = ""));
   await loadProjects();
   await selectProject(p.id);
   closeSidebar();
