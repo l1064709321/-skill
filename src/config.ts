@@ -118,7 +118,7 @@ export function loadSettings(configPath?: string): Settings {
     chunkOverlap: Number(raw.chunk_overlap) || DEFAULT_SETTINGS.chunkOverlap,
     retrieveK: Number(raw.retrieve_k) || DEFAULT_SETTINGS.retrieveK,
     serverHost: (raw.server_host as string) || DEFAULT_SETTINGS.serverHost,
-    serverPort: Number(raw.server_port) || DEFAULT_SETTINGS.serverPort,
+    serverPort: Number(process.env.TIANLAN_PORT) || Number(raw.server_port) || DEFAULT_SETTINGS.serverPort,
     proxy,
     agents,
     workflowMode: (raw.workflow_mode as "state_machine" | "crewai") || DEFAULT_SETTINGS.workflowMode,

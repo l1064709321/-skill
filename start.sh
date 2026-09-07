@@ -42,7 +42,6 @@ mkdir -p "$CONF_DIR" 2>/dev/null || true
 if [ ! -f "$CONF_FILE" ]; then
     echo "  ⚙️  初始化配置 → ${CONF_FILE}"
     cp config.example.yaml "$CONF_FILE"
-    # 生成随机 DB 路径
     sed -i "s|data_dir: ~/.tianyan|data_dir: ${CONF_DIR}|" "$CONF_FILE" 2>/dev/null || true
     echo -e "  ${YELLOW}⚠ 首次运行请编辑 ${CONF_FILE} 填入 API Key${NC}"
 fi
@@ -53,9 +52,10 @@ if command -v npx &> /dev/null && ! npx playwright install --dry-run chromium 2>
     npx playwright install chromium 2>/dev/null || echo -e "  ${YELLOW}⚠ Playwright 浏览器安装失败，浏览器抓取功能降级${NC}"
 fi
 
-# 7. 杀掉占用端口的旧进程
-PORT=$(grep 'server_port' "$CONF_FILE" 2>/dev/null | head -1 | awk '{print $2}')
-PORT=${PORT:-8093}
+# 7. 随机端口 8000~9000
+PORT=$((RANDOM % 1001 + 8000))
+
+# 杀掉占用端口的旧进程
 if command -v fuser &> /dev/null; then
     fuser -k "${PORT}/tcp" 2>/dev/null || true
 elif command -v lsof &> /dev/null; then
@@ -63,8 +63,8 @@ elif command -v lsof &> /dev/null; then
 fi
 sleep 1
 
-# 8. 启动
+# 8. 启动 (通过环境变量传递端口)
 echo ""
 echo -e "  ${GREEN}🚀 启动天衍 → http://localhost:${PORT}${NC}"
 echo ""
-node dist/index.js
+TIANLAN_PORT="${PORT}" node dist/index.js
