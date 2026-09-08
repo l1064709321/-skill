@@ -342,20 +342,41 @@ export const PROVIDER_PRESETS: {
     "agnes/agnes-2.5-flash",
   ], env: "AGNES_API_KEY", apiBase: "https://apihub.agnes-ai.com/v1" },
   // ===== 本地部署 =====
-  // ---------- Ollama 本地 (https://ollama.com/library) ----------
+  // ---------- Ollama 本地 (https://ollama.com/library) — 2026-09 最新 ----------
   { provider: "ollama", label: "Ollama 本地", models: [
-    "ollama/qwen3-coder:30b", "ollama/qwen3:32b", "ollama/qwen3:14b", "ollama/qwen3:8b", "ollama/qwen3:4b",
-    "ollama/qwen2.5:72b", "ollama/qwen2.5:32b", "ollama/qwen2.5:14b", "ollama/qwen2.5:7b", "ollama/qwen2.5:3b",
-    "ollama/qwen2.5-coder:32b", "ollama/qwen2.5-coder:14b", "ollama/qwen2.5-coder:7b",
-    "ollama/deepseek-r1:70b", "ollama/deepseek-r1:32b", "ollama/deepseek-r1:14b",
-    "ollama/deepseek-r1:8b", "ollama/deepseek-r1:7b", "ollama/deepseek-r1:1.5b",
-    "ollama/deepseek-v3:671b",
+    // Qwen 系列 (阿里云通义)
+    "ollama/qwen3.8:32b", "ollama/qwen3.8:14b", "ollama/qwen3.8:8b",
+    "ollama/qwen3.6:32b", "ollama/qwen3.6:14b",
+    "ollama/qwen3.5:397b", "ollama/qwen3.5:32b", "ollama/qwen3.5:14b", "ollama/qwen3.5:8b",
+    "ollama/qwen3-coder:32b", "ollama/qwen3-coder:14b", "ollama/qwen3-coder:8b",
+    "ollama/qwen3:32b", "ollama/qwen3:14b", "ollama/qwen3:8b", "ollama/qwen3:4b",
+    "ollama/qwen2.5:72b", "ollama/qwen2.5:32b", "ollama/qwen2.5:14b", "ollama/qwen2.5:7b",
+    "ollama/qwen2.5-coder:32b", "ollama/qwen2.5-coder:14b",
+    // DeepSeek 系列
+    "ollama/deepseek-v4-flash:0731", "ollama/deepseek-v4-pro:0813",
+    "ollama/deepseek-v3.1:685b",
+    "ollama/deepseek-r1:70b", "ollama/deepseek-r1:32b", "ollama/deepseek-r1:14b", "ollama/deepseek-r1:8b", "ollama/deepseek-r1:7b", "ollama/deepseek-r1:1.5b",
+    // Meta Llama 系列
+    "ollama/llama4:scout", "ollama/llama4:maverick",
     "ollama/llama3.3:70b", "ollama/llama3.3:8b",
     "ollama/llama3.2:8b", "ollama/llama3.2:3b", "ollama/llama3.2:1b",
-    "ollama/mistral:7b", "ollama/mistral-nemo",
+    // Google Gemma 系列
+    "ollama/gemma4:31b", "ollama/gemma4:12b",
     "ollama/gemma3:27b", "ollama/gemma3:12b", "ollama/gemma3:4b",
-    "ollama/phi4:14b",
-    "ollama/codestral:22b",
+    // Mistral 系列
+    "ollama/mistral-large-3:675b", "ollama/mistral:7b", "ollama/mistral-nemo", "ollama/mistral-small3.2",
+    // Microsoft Phi 系列
+    "ollama/phi4:14b", "ollama/phi4-mini:3.8b", "ollama/phi4-reasoning:14b",
+    // NVIDIA Nemotron 系列
+    "ollama/nemotron-3-ultra", "ollama/nemotron-3-super", "ollama/nemotron-3-nano:30b",
+    // 国产模型
+    "ollama/glm-5.3-flash", "ollama/glm-5.1", "ollama/glm-5.2",
+    "ollama/kimi-k3", "ollama/kimi-k2.7-code",
+    "ollama/minimax-m3", "ollama/minimax-m2.7",
+    "ollama/gpt-oss:120b", "ollama/gpt-oss:20b",
+    // 其他
+    "ollama/command-a", "ollama/command-r-plus",
+    "ollama/codestral:22b", "ollama/devstral:22b",
   ], env: "", apiBase: "http://localhost:11434/v1" },
 ];
 
