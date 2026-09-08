@@ -201,9 +201,14 @@ export const PROVIDER_PRESETS: {
   // ===== 国内直连 (无需代理) =====
   // ---------- DeepSeek (https://api-docs.deepseek.com/quick_start/pricing) ----------
   // 2026-08-02 核实: 当前在售仅 V4 系列(Pro/Flash), deepseek-chat/reasoner 已退役
+  // ---------- DeepSeek 深度求索 (https://api-docs.deepseek.com/) ----------
+  // V4: 2026年最新旗舰; V3.1: 上一代高性价比; R1: 推理链模型
   { provider: "deepseek", label: "DeepSeek 深度求索", models: [
     "deepseek/deepseek-v4-pro", "deepseek/deepseek-v4-flash",
-  ], env: "DEEPSEEK_API_KEY", apiBase: "https://api.deepseek.com/v1" },
+    "deepseek/deepseek-v4-flash-vision-exp",
+    "deepseek/deepseek-v3.1",
+    "deepseek/deepseek-r1",
+  ], env: "DEEPSEEK_API_KEY", apiBase: "https://api.deepseek.com/v1" },,
   // ---------- 阿里云通义千问 DashScope (https://help.aliyun.com/zh/model-studio/models) ----------
   // 2026-08-02 核实: Qwen3.8-Max-Preview (2026-07-19) 当前最新旗舰, 2.4万亿参数 MoE, 100万上下文
   { provider: "dashscope", label: "阿里云通义千问 (DashScope)", models: [
