@@ -1,6 +1,10 @@
 # 天衍 配置文件示例
-# 把它复制为 ~/.tianyan/config.yaml 或项目根目录 config.yaml,或用环境变量 TIANYAN_CONFIG 指定。
-# api_key 也可以只设环境变量 (OPENAI_API_KEY / GEMINI_API_KEY / DEEPSEEK_API_KEY 等),这里则可不填。
+# 默认无内置密钥，首次使用须配置:
+#   1) 交互式启动时选择「不跳过」输入密钥
+#   2) 或启动后在前端「模型配置」界面填写
+#   3) 或用 CLI 参数: tianyan --api-key sk-xxx
+#   4) 或设置环境变量: TIANYAN_API_KEY=sk-xxx
+# 无需手动编辑本文件。
 
 data_dir: ~/.tianyan
 server_host: 0.0.0.0
@@ -11,31 +15,27 @@ chunk_size: 2000
 chunk_overlap: 200
 retrieve_k: 6
 
-# 默认模型 (agent 实际使用的模型,litellm 前缀格式)
+# 默认模型 (agent 实际使用的模型, litellm 前缀格式)
+# 留空则读环境变量 TIANYAN_API_KEY / AGNES_API_KEY
 default_model:
-  model: deepseek/deepseek-v4-flash
-  api_key:                              # 留空则读环境变量 DEEPSEEK_API_KEY
-  api_base:                              # 第三方兼容站可填
+  model: agnes/agnes-2.5-flash
+  api_key: ""
+  api_base: "https://apihub.agnes-ai.com/v1"
   temperature: 0.8
   max_tokens: 4096
 
 # 预设模型列表 (前端「添加模型」可快捷选,也可自行增删)
-# 完整厂商预设见 app/config.py 的 PROVIDER_PRESETS
 models:
+  - model: agnes/agnes-2.5-flash
+    api_key: ""
+    api_base: "https://apihub.agnes-ai.com/v1"
   - model: deepseek/deepseek-v4-flash
-    api_key:
   - model: openai/gpt-5.6-terra
-    api_key:
   - model: gemini/gemini-3.1-flash
-    api_key:
   - model: dashscope/qwen3.6-plus
-    api_key:
   - model: zai/glm-5.2
-    api_key:
   - model: moonshot/kimi-k2.7-code
-    api_key:
   - model: siliconflow/deepseek-ai/DeepSeek-V4-Flash
-    api_key:
   - model: ollama/qwen3:14b
     api_base: http://localhost:11434
   # 小米 MiMo (OpenAI 兼容, env: XIAOMI_API_KEY)

@@ -4,11 +4,11 @@
 
 **7 个 Agent 协同**，按强制流水线完成从扫榜调研到定稿交付的完整长篇创作闭环，内置「毒舌总编」审稿机制、35 维质检打回循环、真实浏览器扫榜。
 
-![Python](https://img.shields.io/badge/Python-3.10+-blue)
 ![Node.js](https://img.shields.io/badge/Node.js-18+-339933?logo=node.js)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.x-blue?logo=typescript)
 ![Hono](https://img.shields.io/badge/Hono-4-green)
 ![npm](https://img.shields.io/badge/npm-install-blue)
+![No Docker](https://img.shields.io/badge/📦-无需Docker-绿色)
 [![自定义协议](https://img.shields.io/badge/📄-自定义协议-0052d9)](USER_AGREEMENT.md)
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL--3.0-blueviolet)](https://www.gnu.org/licenses/agpl-3.0.html)
 [![License: GPL v3](https://img.shields.io/badge/License-GPL--3.0-red)](https://www.gnu.org/licenses/gpl-3.0.html)
@@ -72,83 +72,63 @@
 - **Node.js ≥ 18** ([下载](https://nodejs.org))
 - **Python 3** (可选，用于技能桥接/审计/AI味检测)
 
-### 方式一：克隆源码（推荐）
+### 一键启动（推荐）
 
 ```bash
-# 1. 克隆仓库
 git clone https://github.com/l1064709321/tianyan.git
 cd tianyan
 
-# 2. 一键启动（自动安装依赖 + 编译 + 启动）
 # Linux / macOS
-bash start.sh
+bash tianyan.sh
 
 # Windows
-start.bat
+tianyan.bat
 ```
 
-首次运行会自动：
-1. 安装 npm 依赖
-2. 编译 TypeScript
-3. 初始化配置文件 → `~/.tianyan/config.yaml`
-4. 安装 Playwright Chromium 浏览器
+> 首次运行自动：安装依赖 → 编译 → 交互式引导 → 自动打开浏览器。
+> **默认无内置密钥**：可在引导界面直接输入，也可跳过后在网页界面配置。
 
-**首次使用必须编辑配置填入 API Key：**
+### npm 全局安装
 
 ```bash
-# 打开配置文件
-nano ~/.tianyan/config.yaml
-```
-
-修改 `default_model.api_key` 为你的 API Key。
-
-### 方式二：npm 包安装
-
-```bash
-# 全局安装
 npm install -g tianyan
-
-# 启动
-tianyan
+tianyan                        # 交互式引导启动 (推荐)
+tianyan --port 8080            # 指定端口
+tianyan --api-key sk-xxx       # 指定密钥
+tianyan --model deepseek-v4-flash  # 指定模型
+tianyan --no-browser           # 不自动打开浏览器
+tianyan --help                 # 查看全部参数
 ```
 
-首次运行会自动初始化配置文件，编辑 `~/.tianyan/config.yaml` 填入 API Key。
-
-### 方式三：手动启动
+### 手动启动
 
 ```bash
-git clone https://github.com/l1064709321/tianyan.git
-cd tianyan
-npm install
-npm run build
-node dist/index.js
+npm install && npm run build
+node bin/tianyan.js
 ```
-
-打开浏览器访问 **http://localhost:8093**。
 
 ---
 
 ## ⚙️ 配置
 
+**默认无内置密钥**，首次使用须先配置，任选一种：
+
+1. **CLI 引导**：启动时选「不跳过」，按提示输入 API Key
+2. **前端**：启动后跳过配置，在「模型配置」界面直接填写保存
+3. **CLI 参数**：`tianyan --api-key sk-xxx`
+
 配置文件位置：`~/.tianyan/config.yaml`
 
 ```yaml
 default_model:
-  model: "agnes-2.5-flash"        # 或 deepseek/gpt 等
-  api_key: "你的 API Key"          # 填入你的密钥
+  model: "agnes/agnes-2.5-flash"
+  api_key: ""                    # 填入你的密钥 (之前端可配置)
   api_base: "https://apihub.agnes-ai.com/v1"
   temperature: 0.8
   max_tokens: 4096
 
 max_steps: 16
-run_max_duration: 1800            # 秒，完整流程需要 ~10 分钟
-server_port: 8093
-
-agents:
-  orchestrator:       { max_turns: 16, max_steps: 24 }
-  story-architect:    { max_turns: 10, max_steps: 16 }
-  narrative-writer:   { max_turns: 6,  max_steps: 10 }
-  character-designer: { max_turns: 6,  max_steps: 10 }
+server_port: 8000
 ```
 
 支持的模型提供商（通过前端「模型配置」界面添加）：
@@ -177,9 +157,9 @@ tianyan/
 │   ├── app.js              # 前端逻辑
 │   └── style.css           # 样式
 ├── app/                    # Python 技能 (AI味检测/审计等)
-├── config.example.yaml     # 配置模板
-├── start.sh                # Linux/macOS 一键启动
-├── start.bat               # Windows 一键启动
+├── config.example.yaml     # 配置模板 (无内置密钥)
+├── tianyan.sh              # Linux/macOS 一键启动
+├── tianyan.bat             # Windows 一键启动
 └── package.json
 ```
 

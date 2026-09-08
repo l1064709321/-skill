@@ -82,8 +82,19 @@ export function loadSettings(configPath?: string): Settings {
   mkdirSync(uploadDir, { recursive: true });
 
   const defaultModel = modelFromDict((raw.default_model as Record<string, unknown>) || {});
+  // CLI/环境变量覆盖: TIANYAN_API_KEY / TIANYAN_MODEL (优先级最高, 无需改配置文件)
+  const envKey = process.env.TIANYAN_API_KEY || process.env.AGNES_API_KEY || undefined;
+  const envModel = process.env.TIANYAN_MODEL || undefined;
   const models = ((raw.models as Record<string, unknown>[]) || []).map(modelFromDict);
   if (models.length === 0) models.push(defaultModel);
+  if (envKey) {
+    defaultModel.apiKey = envKey;
+    for (const m of models) m.apiKey = envKey;
+  }
+  if (envModel) {
+    defaultModel.model = envModel;
+    if (!models.some((m) => m.model === envModel)) models.push({ ...defaultModel, model: envModel });
+  }
 
   const proxy = String(raw.proxy || '') || process.env.HTTP_PROXY || process.env.HTTPS_PROXY || undefined;
 

@@ -2,14 +2,14 @@
   "name": "tianyan",
   "version": "0.0.1",
   "type": "module",
-  "description": "多Agent协同长篇小说创作系统 — 7 Agent · 36工具 · 111位作家语料库",
+  "description": "多Agent协同长篇小说创作系统 — TypeScript纯TS实现，7 Agent · 36工具",
   "scripts": {
-    "postinstall": "node -e \"try{require('child_process').execSync('python3 --version',{stdio:'ignore'})}catch{console.warn('⚠  未检测到 Python 3，技能桥接将使用降级模式（无审计/拆书/AI味检测）。安装 Python 3 后重新运行即可。')}\"",
-    "prestart": "npx tsc --noEmit 2>/dev/null || npx tsc",
+    "prestart": "",
     "start": "node bin/tianyan.js",
-    "dev": "npx tsc --noEmit 2>/dev/null || npx tsc && node bin/tianyan.js",
+    "dev": "tsc && node bin/tianyan.js",
     "build": "tsc",
-    "clean": "rm -rf dist"
+    "clean": "rm -rf dist",
+    "postinstall": "node -e \"try{require('child_process').execSync('npx tsc --version',{stdio:'ignore'})}catch{console.warn('⚠  TypeScript 未安装, 如需修改源码请手动安装: npm install typescript --save-dev')}\""
   },
   "dependencies": {
     "@hono/node-server": "^1.8.0",
@@ -29,16 +29,22 @@
     "node": ">=18.0.0"
   },
   "files": [
-    "dist/",
-    "src/",
-    "web/",
-    "app/",
-    "app/data/",
-    "scripts/",
-    "README.md",
     "LICENSE",
+    "README.md",
+    "app/data/",
+    "bin/",
+    "config.example.yaml",
+    "dist/",
+    "na",
+    "na.bat",
+    "scripts/",
+    "src/",
+    "start.bat",
+    "start.sh",
+    "tianyan.bat",
+    "tianyan.sh",
     "tsconfig.json",
-    "bin/"
+    "web/"
   ],
   "bin": {
     "tianyan": "bin/tianyan.js"

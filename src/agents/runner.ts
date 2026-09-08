@@ -14,46 +14,14 @@ import { randomBytes } from "node:crypto";
 import { browserSearch, browserFetch, browserScreenshot } from "../browser.js";
 
 // ===== Python 技能引擎桥接 =====
-import { spawn } from "node:child_process";
+import { callSkill, type SkillAction } from "../skills/engine.js";
 
-const SKILL_BRIDGE_PY = new URL("../../app/skill_bridge.py", import.meta.url).pathname;
-
+// TypeScript 技能引擎 — 直接调用，无需 Python
 async function callSkillBridge(action: string, args: Record<string, unknown> = {}): Promise<Record<string, unknown>> {
-  const cmd = JSON.stringify({ action, ...args });
-  return new Promise((resolve) => {
-    const proc = spawn("python3", [SKILL_BRIDGE_PY], {
-      timeout: 60_000,
-      env: { PATH: "/usr/local/bin:/usr/bin:/bin", HOME: "/tmp", LANG: "C.UTF-8" },
-    });
-    let stdout = "";
-    let stderr = "";
-    proc.stdout.on("data", (d: Buffer) => { stdout += d; });
-    proc.stderr.on("data", (d: Buffer) => { stderr += d; });
-    proc.on("close", (code) => {
-      try {
-        if (code !== 0) {
-          resolve({ error: `Python桥接退出码 ${code}: ${stderr.slice(0, 300)}` });
-        } else {
-          resolve(JSON.parse(stdout.trim()));
-        }
-      } catch (e) {
-        resolve({ error: `JSON解析失败: ${(e as Error).message}` });
-      }
-    });
-    proc.on("error", (e) => {
-      resolve({ error: `Python桥接启动失败: ${e.message}` });
-    });
-    // 显式超时保护: spawn 的 timeout 选项不会真正杀死子进程
-    const bridgeTimer = setTimeout(() => {
-      try { proc.kill("SIGKILL"); } catch {}
-      resolve({ error: "Python桥接执行超时 (60s)" });
-    }, 65_000);
-    proc.on("close", () => clearTimeout(bridgeTimer));
-    proc.stdin.write(cmd);
-    proc.stdin.end();
-  });
+  return callSkill(action as SkillAction, args);
 }
 
+// ===== 工具调度 =====
 // ===== 工具调度 =====
 // 将 Agent 的工具调用路由到具体实现
 // 完整的 36 个工具 (从 Python 版 tools.py 迁移)

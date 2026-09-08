@@ -496,8 +496,18 @@ if (existsSync(webDir)) {
 
 // ===== 启动 =====
 const port = s.serverPort;
-console.log(`\n✦ 天衍 (Tianyan) TypeScript v0.1.0`);
-console.log(`  地址: http://localhost:${port}`);
-console.log(`  模型: ${s.defaultModel.model}`);
-console.log(`  数据: ${s.dataDir}\n`);
-serve({ fetch: app.fetch, port }, () => console.log(`  ✓ 服务已启动`));
+const BLUE = "\x1b[36m";
+const RESET = "\x1b[0m";
+const blue = (t: string) => `${BLUE}${t}${RESET}`;
+console.log(`\n`);
+console.log(`${blue("  ╔══════════════════════════════╗")}`);
+console.log(`${blue("  ║")}                            ${blue("║")}`);
+console.log(`${blue("  ║")}      ${blue("【  天  衍  】")}        ${blue("║")}`);
+console.log(`${blue("  ║")}                            ${blue("║")}`);
+console.log(`${blue("  ╚══════════════════════════════╝")}`);
+console.log(`${blue(`  地址: http://localhost:${port}`)}`);
+console.log(`${blue(`  模型: ${s.defaultModel.model}`)}`);
+console.log(`${blue(`  数据: ${s.dataDir}`)}`);
+console.log(`${blue(`  版本: v0.1.0`)}`);
+console.log(`\n`);
+serve({ fetch: app.fetch, port }, () => console.log(`${blue("  ✓ 服务已启动")}`));

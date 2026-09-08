@@ -1,16 +1,9 @@
 #!/usr/bin/env bash
+# ============================================================
 # 天衍 一键管理命令
-# 用法:
-#   na          启动服务 (默认)
-#   na start    启动
-#   na stop     停止
-#   na restart  重启
-#   na status   查看状态
-#   na log      查看日志 (实时滚动,Ctrl+C 退出)
-#   na url      打印访问地址
-
+# 用法: na [start|stop|restart|status|log|url|help]
+# ============================================================
 CMD="${1:-start}"
-# 解析符号链接的真实路径,避免从 /usr/local/bin/na 调用时拿到错误目录
 SOURCE="${BASH_SOURCE[0]:-$0}"
 while [ -L "$SOURCE" ]; do
   DIR="$(cd -P "$(dirname "$SOURCE")" && pwd)"
@@ -18,91 +11,157 @@ while [ -L "$SOURCE" ]; do
   [[ "$SOURCE" != /* ]] && SOURCE="$DIR/$SOURCE"
 done
 DIR="$(cd -P "$(dirname "$SOURCE")" && pwd)"
-# 跨平台临时目录: 优先 TMPDIR, 否则 /tmp
+
 TMP_DIR="${TMPDIR:-/tmp}"
 PID_FILE="${TMP_DIR}/tianyan.pid"
 LOG_FILE="${TMP_DIR}/tianyan.log"
 PORT=8000
-URL="http://localhost:${PORT}/"
 
-# 列出访问地址 (统一用 localhost,跨设备由各自 localhost 解析)
+RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; CYAN='\033[0;36m'; NC='\033[0m'
+
+# ── 镜像源 ──
+MIRRORS=(
+  "npmmirror|https://registry.npmmirror.com"
+  "华为云|https://repo.huaweicloud.com/repository/npm/"
+  "腾讯云|https://mirrors.cloud.tencent.com/npm/"
+  "清华|https://registry.npmmirror.com"
+  "官方|https://registry.npmjs.org"
+)
+
 list_access_urls() {
-  echo ""
-  echo "访问地址: http://localhost:${PORT}/"
-  echo "  (在哪个设备打开就指向哪个设备 — 电脑打开指电脑,手机打开指手机)"
-  echo ""
+    echo ""
+    echo -e "  ${CYAN}访问地址: http://localhost:${PORT}/${NC}"
+    echo ""
 }
 
 is_running() {
-  [ -f "$PID_FILE" ] || return 1
-  local pid; pid=$(cat "$PID_FILE" 2>/dev/null)
-  [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null
+    [ -f "$PID_FILE" ] || return 1
+    local pid; pid=$(cat "$PID_FILE" 2>/dev/null)
+    [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null
+}
+
+# ── TypeScript 环境检测 ──
+ensure_ts() {
+    if npx tsc --version &> /dev/null 2>&1; then
+        return 0
+    fi
+    echo -e "  ${YELLOW}⚠ TypeScript 未安装, 自动安装中...${NC}"
+    for MIRROR_ENTRY in "${MIRRORS[@]}"; do
+        MIRROR_NAME="${MIRROR_ENTRY%%|*}"
+        MIRROR_URL="${MIRROR_ENTRY##*|}"
+        echo -e "  ${CYAN}⟳${NC} 尝试 ${MIRROR_NAME}..."
+        npm install typescript --save-dev \
+            --registry "$MIRROR_URL" \
+            --fetch-timeout 15000 \
+            --no-audit --no-fund \
+            > /dev/null 2>&1 && {
+            if npx tsc --version &> /dev/null 2>&1; then
+                echo -e "  ${GREEN}✓${NC} TypeScript 安装成功 (${MIRROR_NAME})"
+                return 0
+            fi
+        }
+        echo -e "  ${YELLOW}✗${NC} ${MIRROR_NAME} 失败, 换下一个..."
+    done
+    echo -e "  ${RED}[错误] TypeScript 安装失败, 请手动执行: npm install typescript${NC}"
+    return 1
 }
 
 do_start() {
-  if is_running; then
-    echo "✓ 已在运行 (PID $(cat $PID_FILE)) → $URL"
-    return 0
-  fi
-  cd "$DIR" || { echo "✗ 找不到目录: $DIR"; return 1; }
-  if [ ! -f "run.py" ]; then
-    echo "✗ 找不到 run.py (当前目录: $DIR)"
-    return 1
-  fi
-  echo "==> 检查依赖..."
-  python -m pip install -q -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple 2>&1 | tail -2 || true
-  echo "==> 启动服务 (目录: $DIR)..."
-  nohup python run.py > "$LOG_FILE" 2>&1 &
-  echo $! > "$PID_FILE"
-  echo "==> 等待就绪..."
-  for i in $(seq 1 15); do
-    code=$(curl -s -o /dev/null -w "%{http_code}" "$URL" 2>/dev/null || echo 000)
-    if [ "$code" = "200" ]; then
-      echo "✓ 服务已启动 → $URL  (PID $(cat $PID_FILE))"
-      list_access_urls
-      return 0
+    if is_running; then
+        echo -e "  ${GREEN}✓${NC} 已在运行 (PID $(cat $PID_FILE))"
+        list_access_urls
+        return 0
     fi
-    sleep 1
-  done
-  echo "✗ 启动失败,日志:"
-  tail -20 "$LOG_FILE"
-  return 1
+    cd "$DIR" || { echo -e "  ${RED}✗ 找不到目录: $DIR${NC}"; return 1; }
+
+    # 检查 Node.js
+    if ! command -v node &> /dev/null; then
+        echo -e "  ${RED}[错误] 未检测到 Node.js${NC}"
+        return 1
+    fi
+
+    # 确保 TypeScript
+    ensure_ts || return 1
+
+    # 安装依赖
+    if [ ! -d "node_modules" ]; then
+        echo "  📦 安装依赖..."
+        for MIRROR_ENTRY in "${MIRRORS[@]}"; do
+            MIRROR_NAME="${MIRROR_ENTRY%%|*}"
+            MIRROR_URL="${MIRROR_ENTRY##*|}"
+            npm install --registry "$MIRROR_URL" --no-audit --no-fund 2>/dev/null && break
+            echo -e "  ${YELLOW}✗${NC} ${MIRROR_NAME} 失败, 换下一个..."
+        done
+    fi
+
+    # 编译
+    npx tsc 2>/dev/null || npx tsc
+
+    echo "  🚀 启动服务..."
+    nohup node bin/tianyan.js --port "$PORT" --no-browser > "$LOG_FILE" 2>&1 &
+    echo $! > "$PID_FILE"
+
+    echo "  ⏳ 等待就绪..."
+    for i in $(seq 1 20); do
+        code=$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:${PORT}/api/health" 2>/dev/null || echo 000)
+        if [ "$code" = "200" ]; then
+            echo -e "  ${GREEN}✓${NC} 服务已启动  (PID $(cat $PID_FILE))"
+            list_access_urls
+            return 0
+        fi
+        sleep 1
+    done
+    echo -e "  ${RED}✗ 启动超时, 日志:${NC}"
+    tail -20 "$LOG_FILE"
+    return 1
 }
 
 do_stop() {
-  if ! is_running; then
-    echo "✗ 服务未运行"
+    if ! is_running; then
+        echo -e "  ${YELLOW}○ 服务未运行${NC}"
+        rm -f "$PID_FILE"
+        return 0
+    fi
+    local pid; pid=$(cat "$PID_FILE")
+    kill "$pid" 2>/dev/null || true
+    # 等待进程退出
+    for i in $(seq 1 5); do
+        kill -0 "$pid" 2>/dev/null || break
+        sleep 1
+    done
+    kill -9 "$pid" 2>/dev/null || true
+    echo -e "  ${GREEN}✓${NC} 已停止 (PID $pid)"
     rm -f "$PID_FILE"
-    return 0
-  fi
-  local pid; pid=$(cat "$PID_FILE")
-  pkill -f "run.py" 2>/dev/null || true
-  sleep 1
-  echo "✓ 已停止 (PID $pid)"
-  rm -f "$PID_FILE"
 }
 
 do_status() {
-  if is_running; then
-    echo "● 运行中  PID $(cat $PID_FILE)  →  $URL"
-    list_access_urls
-  else
-    echo "○ 未运行"
-  fi
+    if is_running; then
+        echo -e "  ${GREEN}●${NC} 运行中  PID $(cat $PID_FILE)"
+        list_access_urls
+    else
+        echo -e "  ${YELLOW}○${NC} 未运行"
+    fi
 }
 
 do_log() {
-  if [ ! -f "$LOG_FILE" ]; then echo "✗ 日志不存在"; exit 1; fi
-  echo "==> 实时日志 (Ctrl+C 退出):"
-  tail -n 50 -f "$LOG_FILE"
+    if [ ! -f "$LOG_FILE" ]; then
+        echo -e "  ${YELLOW}○ 日志不存在, 请先运行: na start${NC}"
+        exit 1
+    fi
+    echo -e "  ${CYAN}==> 实时日志 (Ctrl+C 退出):${NC}"
+    tail -n 50 -f "$LOG_FILE"
 }
 
 case "$CMD" in
-  start)   do_start ;;
-  stop)    do_stop ;;
-  restart) do_stop; do_start ;;
-  status)  do_status ;;
-  log)     do_log ;;
-  url)     list_access_urls ;;
-  *) echo "用法: na [start|stop|restart|status|log|url]"; exit 1 ;;
+    start)   do_start ;;
+    stop)    do_stop ;;
+    restart) do_stop; do_start ;;
+    status)  do_status ;;
+    log)     do_log ;;
+    url)     list_access_urls ;;
+    help|-h|--help)
+        echo "  天衍 (Tianyan) 管理命令"
+        echo "  用法: na [start|stop|restart|status|log|url]"
+        ;;
+    *) echo "  用法: na [start|stop|restart|status|log|url]"; exit 1 ;;
 esac
