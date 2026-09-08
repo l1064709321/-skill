@@ -44,3 +44,15 @@ models:
   # 华为盘古 MaaS (OpenAI 兼容, env: MAAS_API_KEY)
   - model: openai/openpangu-2.0-flash
     api_base: https://api.modelarts-maas.com/v2
+  # 零一万物 01.AI
+  - model: yi/yi-lightning
+  - model: yi/yi-large
+  # 百川智能 Baichuan
+  - model: baichuan/baichuan4-turbo
+  - model: baichuan/baichuan4-air
+  # 阶跃星辰 StepFun
+  - model: stepfun/step-2-16k
+  - model: stepfun/step-2-32k
+  # 腾讯混元 Hunyuan
+  - model: hunyuan/hunyuan-turbos-latest
+  - model: hunyuan/hunyuan-large

@@ -132,9 +132,11 @@ server_port: 8000
 ```
 
 支持的模型提供商（通过前端「模型配置」界面添加）：
-- Agnes AI / DeepSeek / OpenAI / Anthropic Claude / Google Gemini
-- 阿里云通义千问 / 智谱 GLM / 月之暗面 Kimi / 火山引擎豆包
-- 硅基流动 / OpenRouter / Together AI / Ollama 本地等 16+
+- **国内**: DeepSeek / 阿里云通义千问 / 智谱 GLM / 月之暗面 Kimi / 火山引擎豆包
+- **国内**: 百度文心 / 小米 MiMo / 华为盘古 / 硅基流动 / 零一万物 / 百川智能 / 阶跃星辰 / 腾讯混元
+- **海外**: OpenAI / Anthropic Claude / Google Gemini / xAI Grok / Mistral AI
+- **聚合**: OpenRouter / Together AI / Fireworks AI / Agnes AI
+- **本地**: Ollama（32 个模型）
 
 ---
 

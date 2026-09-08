@@ -316,6 +316,27 @@ export const PROVIDER_PRESETS: {
     "fireworks_ai/accounts/fireworks/models/qwen3-235b-a22b-instruct",
     "fireworks_ai/accounts/fireworks/models/deepseek-v3",
   ], env: "FIREWORKS_API_KEY", apiBase: "https://api.fireworks.ai/inference/v1" },
+  // ---------- 零一万物 01.AI (https://platform.lingyiwanwu.com/) ----------
+  { provider: "yi", label: "零一万物 01.AI", models: [
+    "yi/yi-lightning", "yi/yi-large", "yi/yi-medium",
+    "yi/yi-large-turbo", "yi/yi-spark",
+  ], env: "YI_API_KEY", apiBase: "https://api.lingyiwanwu.com/v1" },
+  // ---------- 百川智能 Baichuan (https://platform.baichuan-ai.com/) ----------
+  { provider: "baichuan", label: "百川智能 Baichuan", models: [
+    "baichuan/baichuan4-turbo", "baichuan/baichuan4-air",
+    "baichuan/baichuan3-turbo", "baichuan/baichuan3-air",
+  ], env: "BAICHUAN_API_KEY", apiBase: "https://api.baichuan-ai.com/v1" },
+  // ---------- 阶跃星辰 StepFun (https://platform.stepfun.com/) ----------
+  { provider: "stepfun", label: "阶跃星辰 StepFun", models: [
+    "stepfun/step-2-16k", "stepfun/step-2-32k",
+    "stepfun/step-1-32k", "stepfun/step-1-8k",
+  ], env: "STEPFUN_API_KEY", apiBase: "https://api.stepfun.com/v1" },
+  // ---------- 腾讯混元 Hunyuan (https://cloud.tencent.com/product/hunyuan) ----------
+  { provider: "hunyuan", label: "腾讯混元 Hunyuan", models: [
+    "hunyuan/hunyuan-turbos-latest", "hunyuan/hunyuan-turbos",
+    "hunyuan/hunyuan-large", "hunyuan/hunyuan-standard",
+  ], env: "HUNYUAN_API_KEY", apiBase: "https://api.hunyuan.cloud.tencent.com/v1" },
+
   // ---------- Agnes AI ----------
   { provider: "agnes", label: "Agnes AI", models: [
     "agnes/agnes-2.5-flash",
@@ -345,7 +366,7 @@ function stripProviderPrefix(model: string): string {
   const provider = model.slice(0, idx);
   const rest = model.slice(idx + 1);
   // 已知聚合 provider 前缀才剥离, 避免误伤 openrouter/openai/gpt-5.6-sol 这类路径式模型名
-  const stripable = new Set(["openai", "anthropic", "gemini", "deepseek", "mistral", "xai", "olan", "agnes", "zai", "zhipu", "glm", "moonshot", "dashscope", "volcengine", "baidu", "ernie", "qianfan", "siliconflow", "openrouter", "together_ai", "fireworks_ai"]);
+  const stripable = new Set(["openai", "anthropic", "gemini", "deepseek", "mistral", "xai", "olan", "agnes", "zai", "zhipu", "glm", "moonshot", "dashscope", "volcengine", "baidu", "ernie", "qianfan", "siliconflow", "openrouter", "together_ai", "fireworks_ai", "yi", "baichuan", "stepfun", "hunyuan"]);
   return stripable.has(provider) ? rest : model;
 }
 
