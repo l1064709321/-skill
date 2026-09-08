@@ -63,8 +63,40 @@ elif command -v lsof &> /dev/null; then
 fi
 sleep 1
 
-# 8. 启动 (通过环境变量传递端口)
+# 8. 后台启动服务
 echo ""
 echo -e "  ${GREEN}🚀 启动天衍 → http://localhost:${PORT}${NC}"
 echo ""
-TIANLAN_PORT="${PORT}" node dist/index.js
+TIANLAN_PORT="${PORT}" node dist/index.js &
+SERVER_PID=$!
+
+# 9. 等待服务就绪 (最多 30 秒)
+READY=0
+for i in $(seq 1 30); do
+    if curl -s -o /dev/null --connect-timeout 1 "http://localhost:${PORT}/" 2>/dev/null; then
+        READY=1
+        break
+    fi
+    sleep 1
+done
+
+# 10. 自动打开浏览器 (跨平台)
+if [ "${READY}" = "1" ]; then
+    echo -e "  ${GREEN}🌐 正在自动打开浏览器...${NC}"
+    sleep 1
+    URL="http://localhost:${PORT}"
+    if command -v xdg-open &> /dev/null; then
+        (xdg-open "$URL" >/dev/null 2>&1 &)
+    elif command -v open &> /dev/null; then
+        (open "$URL" >/dev/null 2>&1 &)
+    elif command -v start &> /dev/null; then
+        (start "$URL" >/dev/null 2>&1 &)
+    else
+        echo -e "  ${YELLOW}⚠ 无法自动打开浏览器，请手动访问: ${URL}${NC}"
+    fi
+else
+    echo -e "  ${YELLOW}⚠ 服务启动较慢，请稍后手动访问: http://localhost:${PORT}${NC}"
+fi
+
+# 11. 保持前台运行 (Ctrl+C 可中断)
+wait "$SERVER_PID"
