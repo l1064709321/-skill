@@ -6,8 +6,8 @@
   "scripts": {
     "postinstall": "node -e \"try{require('child_process').execSync('python3 --version',{stdio:'ignore'})}catch{console.warn('⚠  未检测到 Python 3，技能桥接将使用降级模式（无审计/拆书/AI味检测）。安装 Python 3 后重新运行即可。')}\"",
     "prestart": "npx tsc --noEmit 2>/dev/null || npx tsc",
-    "start": "node dist/index.js",
-    "dev": "npx tsc --noEmit 2>/dev/null || npx tsc && node dist/index.js",
+    "start": "node bin/tianyan.js",
+    "dev": "npx tsc --noEmit 2>/dev/null || npx tsc && node bin/tianyan.js",
     "build": "tsc",
     "clean": "rm -rf dist"
   },
@@ -37,6 +37,10 @@
     "scripts/",
     "README.md",
     "LICENSE",
-    "tsconfig.json"
-  ]
+    "tsconfig.json",
+    "bin/"
+  ],
+  "bin": {
+    "tianyan": "bin/tianyan.js"
+  }
 }

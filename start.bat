@@ -5,7 +5,7 @@ set "DIR=%~dp0"
 cd /d "%DIR%"
 
 echo.
-echo   天衍 (Tianyan) — 一键启动
+echo   天衍 (Tianyan) - 一键启动
 echo   ============================================
 echo.
 
@@ -41,9 +41,7 @@ if not exist "%CONF_FILE%" (
     echo.
 )
 
-:: 5. 启动
+:: 5. 启动 (随机端口 8000~9000 + 自动打开浏览器)
 echo.
-echo   🚀 启动天衍 → http://localhost:8093
-echo.
-call node dist/index.js
+call node bin/tianyan.js
 pause
